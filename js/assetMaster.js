@@ -9,7 +9,7 @@
 
 import { db } from "./firebase.js";
 import {
-  collection, doc, getDocs, setDoc, addDoc, query, orderBy, serverTimestamp
+  collection, doc, getDocs, setDoc, addDoc, updateDoc, query, orderBy, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 export async function listAssetTypes() {
@@ -52,6 +52,28 @@ export async function createAssetMaster(data, currentUser) {
     createdAt: serverTimestamp()
   });
   return ref.id;
+}
+
+/**
+ * Correct an existing Asset Master — e.g. it was created with the wrong
+ * Asset Type code and needs to point at the right one. This only ever
+ * changes the catalogue entry itself; it does NOT retroactively rename any
+ * Asset ID already generated from it (those stay historically accurate —
+ * see Ch.4's "Asset ID never changes after creation" rule). Future assets
+ * created from this Master will use the corrected values.
+ */
+export async function updateAssetMaster(masterId, data) {
+  await updateDoc(doc(db, "assetMasters", masterId), {
+    assetName: data.assetName.trim(),
+    category: data.category,
+    assetTypeCode: data.assetTypeCode,
+    brand: data.brand?.trim() || "",
+    model: data.model?.trim() || "",
+    warrantyApplicable: !!data.warrantyApplicable,
+    defaultVendorId: data.defaultVendorId || null,
+    driveImageLink: data.driveImageLink?.trim() || "",
+    description: data.description?.trim() || ""
+  });
 }
 
 export const ASSET_CATEGORIES = [

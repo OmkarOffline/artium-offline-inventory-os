@@ -12,7 +12,7 @@ import {
   runTransaction, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { el, showToast } from "./utils.js";
-import { listAssetMasters, listAssetTypes, createAssetType, createAssetMaster, ASSET_CATEGORIES } from "./assetMaster.js";
+import { listAssetMasters, listAssetTypes, createAssetType, createAssetMaster, updateAssetMaster, ASSET_CATEGORIES } from "./assetMaster.js";
 import { listVendors, openVendorModal } from "./vendors.js";
 import { logActivity } from "./activity.js";
 
@@ -89,7 +89,12 @@ export function openAddAssetModal(state, onSaved) {
 
     document.getElementById("f_centre").addEventListener("change", onCentreChange);
     document.getElementById("f_assetMaster").addEventListener("change", onMasterChange);
-    document.getElementById("newAssetMasterBtn").addEventListener("click", openNewAssetMasterModal);
+    document.getElementById("newAssetMasterBtn").addEventListener("click", () => openAssetMasterFormModal(null));
+    document.getElementById("editAssetMasterBtn").addEventListener("click", () => {
+      if (!selectedMaster) { showToast("Select an Asset Master to edit first", "red"); return; }
+      openAssetMasterFormModal(selectedMaster);
+    });
+    document.getElementById("editAssetMasterBtn").disabled = true;
     document.getElementById("newVendorBtn").addEventListener("click", () => {
       openVendorModal(null, state, async (newVendorId) => {
         vendors = await listVendors();
@@ -111,7 +116,8 @@ export function openAddAssetModal(state, onSaved) {
       el("div", { class: "field-label" }, "Asset Master"),
       el("div", { style: "display:flex;gap:8px;" }, [
         selectEl("f_assetMaster", assetMasters.map((m) => ({ value: m.id, label: `${m.assetName}${m.brand ? " — " + m.brand : ""}` })), null, "Select an Asset Master"),
-        el("button", { class: "btn btn-secondary btn-sm", id: "newAssetMasterBtn", type: "button" }, "+ New")
+        el("button", { class: "btn btn-secondary btn-sm", id: "newAssetMasterBtn", type: "button" }, "+ New"),
+        el("button", { class: "btn btn-secondary btn-sm", id: "editAssetMasterBtn", type: "button" }, "Edit")
       ])
     ]);
   }
@@ -136,7 +142,7 @@ export function openAddAssetModal(state, onSaved) {
         ]),
         field("Warranty Expiry", input("f_warrantyExpiry", "date"))
       ]),
-      field("Photo (Google Drive link, optional)", input("f_driveLink")),
+      field("Photo (link, optional)", input("f_driveLink")),
       field("Remarks", (() => { const t = document.createElement("textarea"); t.id = "f_remarks"; t.className = "field-input"; return t; })())
     ];
   }
@@ -160,6 +166,7 @@ export function openAddAssetModal(state, onSaved) {
     const infoEl = document.getElementById("masterInfo");
     const copyEl = document.getElementById("copyFromSection");
     const manualEl = document.getElementById("manualFields");
+    document.getElementById("editAssetMasterBtn").disabled = !selectedMaster;
 
     if (!selectedMaster) {
       infoEl.innerHTML = "";
@@ -205,18 +212,25 @@ export function openAddAssetModal(state, onSaved) {
     manualEl.classList.remove("hidden");
   }
 
-  function openNewAssetMasterModal() {
+  /**
+   * Same form for creating a new Asset Master and correcting an existing
+   * one (e.g. it was saved with the wrong Asset Type, which previously had
+   * no fix short of a support request — see feedback that led to this).
+   * Pass an existing Master to edit it in place; pass null to create new.
+   */
+  function openAssetMasterFormModal(existing) {
+    const isEdit = !!existing;
     const innerOverlay = el("div", { class: "modal-overlay show", role: "dialog", "aria-modal": "true" });
     const typeSelectId = "nm_assetType";
     const inner = el("div", { class: "modal" }, [
-      el("div", { class: "modal-header" }, [el("h2", {}, "New Asset Master"), el("button", { class: "btn-icon-only", "aria-label": "Close", onclick: () => innerOverlay.remove() }, "×")]),
+      el("div", { class: "modal-header" }, [el("h2", {}, isEdit ? "Edit Asset Master" : "New Asset Master"), el("button", { class: "btn-icon-only", "aria-label": "Close", onclick: () => innerOverlay.remove() }, "×")]),
       el("div", { class: "modal-body" }, [
         field("Asset Name", input("nm_assetName")),
         el("div", { class: "field-row" }, [
           field("Category", selectEl("nm_category", ASSET_CATEGORIES.map((c) => ({ value: c, label: c })))),
           field("Asset Type", (() => {
             const wrap = el("div", { style: "display:flex;gap:6px;" }, [
-              selectEl(typeSelectId, assetTypes.map((t) => ({ value: t.code, label: `${t.code} — ${t.name}` }))),
+              selectEl(typeSelectId, assetTypes.map((t) => ({ value: t.code, label: `${t.code} — ${t.name}` })), null, "Select a type"),
               el("button", { class: "btn btn-secondary btn-sm", type: "button", onclick: async () => {
                 const code = window.prompt("New Asset Type code (e.g. AMP):");
                 if (!code) return;
@@ -237,51 +251,79 @@ export function openAddAssetModal(state, onSaved) {
           el("input", { type: "checkbox", id: "nm_warrantyApplicable" }), "Warranty applicable"
         ]),
         field("Default Vendor (optional)", selectEl("nm_defaultVendor", [{ value: "", label: "None" }].concat(vendors.map((v) => ({ value: v.id, label: v.companyName }))))),
-        field("Standard Image (Google Drive link, optional)", input("nm_driveImageLink")),
-        field("Description / Remarks", (() => { const t = document.createElement("textarea"); t.id = "nm_description"; t.className = "field-input"; return t; })())
-      ]),
+        field("Standard Image (link, optional)", input("nm_driveImageLink")),
+        field("Description / Remarks", (() => { const t = document.createElement("textarea"); t.id = "nm_description"; t.className = "field-input"; return t; })()),
+        isEdit ? el("div", { style: "font-size:11.5px;color:var(--text-faint);margin-top:2px;" },
+          "Changing the Asset Type here only affects future assets created from this Master — Asset IDs already generated (like ones using the wrong code) don't get renamed automatically. Correct those individually via Room/Centre history if needed, or contact your Owner.") : null
+      ].filter(Boolean)),
       el("div", { class: "modal-footer" }, [
         el("button", { class: "btn btn-ghost", onclick: () => innerOverlay.remove() }, "Cancel"),
         el("button", { class: "btn btn-primary", onclick: async (e) => {
           const name = document.getElementById("nm_assetName").value.trim();
           if (!name) { showToast("Asset Name is required", "red"); return; }
+          const assetTypeCode = document.getElementById(typeSelectId).value;
+          if (!assetTypeCode) { showToast("Select an Asset Type — this sets the code used in every Asset ID for this master", "red"); return; }
           e.target.disabled = true;
+          const masterData = {
+            assetName: name,
+            category: document.getElementById("nm_category").value,
+            assetTypeCode,
+            brand: document.getElementById("nm_brand").value,
+            model: document.getElementById("nm_model").value,
+            warrantyApplicable: document.getElementById("nm_warrantyApplicable").checked,
+            defaultVendorId: document.getElementById("nm_defaultVendor").value || null,
+            driveImageLink: document.getElementById("nm_driveImageLink").value,
+            description: document.getElementById("nm_description").value
+          };
           try {
-            const masterData = {
-              assetName: name,
-              category: document.getElementById("nm_category").value,
-              assetTypeCode: document.getElementById(typeSelectId).value,
-              brand: document.getElementById("nm_brand").value,
-              model: document.getElementById("nm_model").value,
-              warrantyApplicable: document.getElementById("nm_warrantyApplicable").checked,
-              defaultVendorId: document.getElementById("nm_defaultVendor").value || null,
-              driveImageLink: document.getElementById("nm_driveImageLink").value,
-              description: document.getElementById("nm_description").value
-            };
-            const id = await createAssetMaster(masterData, state.profile);
-            // Keep the full record locally (not just id/name) — this is what
-            // selectedMaster reads from immediately after creation, and every
-            // field on it (brand, type, warranty...) feeds directly into the
-            // asset being saved. Missing fields here previously became
-            // `undefined` values, which Firestore's SDK silently rejects.
-            const newMaster = { id, ...masterData };
-            assetMasters.push(newMaster);
-            const masterSelect = document.getElementById("f_assetMaster");
-            masterSelect.appendChild(new Option(name, id));
-            masterSelect.value = id;
-            await onMasterChange();
-            showToast("Asset Master created", "green");
+            if (isEdit) {
+              await updateAssetMaster(existing.id, masterData);
+              const updated = { id: existing.id, ...masterData };
+              const idx = assetMasters.findIndex((m) => m.id === existing.id);
+              if (idx !== -1) assetMasters[idx] = updated;
+              const masterSelect = document.getElementById("f_assetMaster");
+              const opt = Array.from(masterSelect.options).find((o) => o.value === existing.id);
+              if (opt) opt.textContent = `${name}${masterData.brand ? " — " + masterData.brand : ""}`;
+              if (selectedMaster?.id === existing.id) { selectedMaster = updated; await onMasterChange(); }
+              showToast("Asset Master updated", "green");
+            } else {
+              const id = await createAssetMaster(masterData, state.profile);
+              // Keep the full record locally (not just id/name) — this is what
+              // selectedMaster reads from immediately after creation, and every
+              // field on it (brand, type, warranty...) feeds directly into the
+              // asset being saved. Missing fields here previously became
+              // `undefined` values, which Firestore's SDK silently rejects.
+              const newMaster = { id, ...masterData };
+              assetMasters.push(newMaster);
+              const masterSelect = document.getElementById("f_assetMaster");
+              masterSelect.appendChild(new Option(name, id));
+              masterSelect.value = id;
+              await onMasterChange();
+              showToast("Asset Master created", "green");
+            }
             innerOverlay.remove();
           } catch (err) {
-            console.error("[addAsset] Failed to create Asset Master:", err);
-            showToast("Couldn't create Asset Master. Check your permissions.", "red");
+            console.error(`[addAsset] Failed to ${isEdit ? "update" : "create"} Asset Master:`, err);
+            showToast(`Couldn't ${isEdit ? "update" : "create"} Asset Master. Check your permissions.`, "red");
             e.target.disabled = false;
           }
-        } }, "Create")
+        } }, isEdit ? "Save" : "Create")
       ])
     ]);
     innerOverlay.appendChild(inner);
     document.body.appendChild(innerOverlay);
+
+    if (isEdit) {
+      document.getElementById("nm_assetName").value = existing.assetName || "";
+      document.getElementById("nm_category").value = existing.category || "";
+      document.getElementById(typeSelectId).value = existing.assetTypeCode || "";
+      document.getElementById("nm_brand").value = existing.brand || "";
+      document.getElementById("nm_model").value = existing.model || "";
+      document.getElementById("nm_warrantyApplicable").checked = !!existing.warrantyApplicable;
+      document.getElementById("nm_defaultVendor").value = existing.defaultVendorId || "";
+      document.getElementById("nm_driveImageLink").value = existing.driveImageLink || "";
+      document.getElementById("nm_description").value = existing.description || "";
+    }
   }
 
   async function handleSave() {

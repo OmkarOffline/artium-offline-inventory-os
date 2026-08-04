@@ -41,8 +41,16 @@ export async function openAssetProfile(assetId, state, onChanged) {
 
   let editMode = false;
 
-  await reload();
-  render();
+  try {
+    await reload();
+    render();
+  } catch (err) {
+    console.error("[assetProfile] Failed to load asset profile:", err);
+    panel.innerHTML = "";
+    panel.appendChild(el("div", { class: "panel-body" }, [
+      renderInlineEmpty("Couldn't load this asset's profile. Check the browser console for details — this may need a Firestore index (look for a create-index link) or a permissions issue.")
+    ]));
+  }
 
   // ---------------------------------------------------------------------
   // Refetches everything the panel displays: the asset doc itself (room,
@@ -158,9 +166,9 @@ export async function openAssetProfile(assetId, state, onChanged) {
     body.appendChild(sectionTitle("Photo"));
     const photoLink = asset.driveImageLink || masterImage;
     if (editMode) {
-      body.appendChild(editableGrid([["Google Drive Link (optional)", "driveImageLink", asset.driveImageLink]]));
+      body.appendChild(editableGrid([["Photo Link (optional)", "driveImageLink", asset.driveImageLink]]));
     } else if (photoLink) {
-      body.appendChild(el("a", { href: photoLink, target: "_blank", class: "btn btn-secondary btn-sm" }, "Open photo in Drive ↗"));
+      body.appendChild(el("a", { href: photoLink, target: "_blank", class: "btn btn-secondary btn-sm" }, "Open link ↗"));
     } else {
       body.appendChild(renderInlineEmpty("No photo linked yet."));
     }
@@ -241,8 +249,13 @@ export async function openAssetProfile(assetId, state, onChanged) {
   }
 
   async function refresh() {
-    await reload();
-    render();
+    try {
+      await reload();
+      render();
+    } catch (err) {
+      console.error("[assetProfile] Failed to refresh asset profile:", err);
+      showToast("Couldn't refresh this asset's details. Check the browser console for details.", "red");
+    }
   }
 
   async function markLabelReprinted() {
