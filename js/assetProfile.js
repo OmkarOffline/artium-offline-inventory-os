@@ -59,7 +59,7 @@ export async function openAssetProfile(assetId, state, onChanged) {
       asset.vendorId ? getDoc(doc(db, "vendors", asset.vendorId)) : Promise.resolve(null),
       asset.assetMasterId ? getDoc(doc(db, "assetMasters", asset.assetMasterId)) : Promise.resolve(null),
       listVendors(),
-      listRepairsForAsset(asset.id),
+      listRepairsForAsset(asset.id).catch((err) => { console.error("[assetProfile] Failed to load repairs:", err); return null; }),
       listAuditFlagsForAsset(asset.id).catch((err) => { console.error("[assetProfile] Failed to load audit flags:", err); return null; })
     ]);
     roomName = roomSnap?.exists() ? roomSnap.data().name : "—";
@@ -322,6 +322,10 @@ export async function openAssetProfile(assetId, state, onChanged) {
   }
 
   function renderRepairHistory(container) {
+    if (repairs === null) {
+      container.appendChild(renderInlineEmpty("Couldn't load — this may need a Firestore index (check the browser console for a create-index link)."));
+      return;
+    }
     if (!repairs.length) {
       container.appendChild(renderInlineEmpty("No repairs recorded yet."));
       return;

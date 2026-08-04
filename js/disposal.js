@@ -155,7 +155,19 @@ export function openRejectDisposalModal(request, state, onDone) {
 /** Renders the full Disposal Requests queue — reachable from nav or the bell. */
 export async function renderDisposalRequestsPage(container, state) {
   container.innerHTML = "<div style=\"padding:20px;color:var(--text-faint);font-size:12.5px;\">Loading…</div>";
-  const requests = await listDisposalRequests(state);
+  let requests;
+  try {
+    requests = await listDisposalRequests(state);
+  } catch (err) {
+    console.error("[disposal] Failed to load disposal requests:", err);
+    container.innerHTML = "";
+    const { renderEmptyState } = await import("./utils.js");
+    renderEmptyState(container, {
+      title: "Couldn't load disposal requests",
+      subtitle: "This may need a Firestore index — check the browser console for a create-index link."
+    });
+    return;
+  }
   container.innerHTML = "";
 
   if (!requests.length) {
