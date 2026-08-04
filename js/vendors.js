@@ -183,7 +183,7 @@ export function openVendorModal(existing, state, onSaved) {
   document.body.appendChild(overlay);
 }
 
-async function openVendorProfile(vendor, state, onChanged) {
+export async function openVendorProfile(vendor, state, onChanged) {
   const overlay = el("div", { class: "overlay show", role: "dialog", "aria-modal": "true" });
   const panel = el("div", { class: "panel show" });
   panel.appendChild(el("div", { class: "panel-header" }, [

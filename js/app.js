@@ -16,6 +16,7 @@ import { renderVendorDirectory } from "./vendors.js";
 import { renderAuditsPage } from "./audits.js";
 import { renderDisposalRequestsPage } from "./disposal.js";
 import { mountNotificationBell } from "./notifications.js";
+import { mountGlobalSearch } from "./globalSearch.js";
 import { renderReportsPage } from "./reports.js";
 import { renderSettingsPage } from "./settings.js";
 import { renderUsersPage } from "./users.js";
@@ -143,6 +144,7 @@ function renderShell() {
 
   renderNav();
   mountNotificationBell(document.getElementById("notifBellSlot"), state);
+  mountGlobalSearch(state);
 
   document.getElementById("collapseBtn").addEventListener("click", toggleSidebar);
   document.getElementById("signOutBtn").addEventListener("click", async () => {
