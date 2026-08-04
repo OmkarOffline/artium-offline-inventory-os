@@ -11,7 +11,7 @@ import { db } from "./firebase.js";
 import { doc, getDoc, updateDoc, collection, query, where, orderBy, getDocs, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { el, formatDate, formatDateTime, formatCurrency, statusBadge, showToast } from "./utils.js";
 import { logActivity } from "./activity.js";
-import { openRoomTransferModal, openCentreTransferModal } from "./transfer.js";
+import { openRoomTransferModal, openCentreTransferModal, openCorrectAssetTypeModal } from "./transfer.js";
 import { listRepairsForAsset, openSendForRepairModal, openReturnFromRepairModal, repairStatusLabel } from "./repairs.js";
 import { listVendors } from "./vendors.js";
 import { openDisposalRequestModal } from "./disposal.js";
@@ -230,6 +230,10 @@ export async function openAssetProfile(assetId, state, onChanged) {
     buttons.push(el("button", { class: "btn btn-secondary btn-sm", onclick: openChangeCustodianModal }, "Change Custodian"));
     buttons.push(el("button", { class: "btn btn-secondary btn-sm", onclick: () => openRoomTransferModal(asset, state, refresh) }, "Transfer Room"));
     buttons.push(el("button", { class: "btn btn-secondary btn-sm", onclick: () => openCentreTransferModal(asset, state, refresh) }, "Transfer Centre"));
+
+    if (state.profile.role === "owner") {
+      buttons.push(el("button", { class: "btn btn-secondary btn-sm", onclick: () => openCorrectAssetTypeModal(asset, state, refresh) }, "Correct Asset Type"));
+    }
 
     if (asset.currentStatus === "under_repair") {
       buttons.push(el("button", { class: "btn btn-secondary btn-sm", onclick: () => openReturnFromRepairModal(asset, state, refresh) }, "Return from Repair"));
