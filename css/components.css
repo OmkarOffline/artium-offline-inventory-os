@@ -102,6 +102,18 @@
 .panel-footer{padding:14px 20px;border-top:1px solid var(--border-soft);display:flex;gap:8px;background:#fff;}
 .panel-footer .btn{flex:1;justify-content:center;}
 
+/* Activity feed rows — Dashboard "Recent Activity" and the Asset Profile's
+   Activity Timeline / History sub-lists all share this row style. */
+.activity-item{
+  display:flex;align-items:flex-start;gap:10px;
+  background:var(--bg-input);border:1px solid var(--border-soft);border-radius:var(--radius-sm);
+  padding:10px 12px;font-size:12.5px;line-height:1.45;
+}
+.activity-dot{
+  flex:none;width:7px;height:7px;margin-top:5px;border-radius:50%;
+  background:var(--accent);box-shadow:0 0 0 3px var(--accent-soft);
+}
+
 /* ---------- Modal Dialogs ---------- */
 .modal-overlay{position:fixed;inset:0;background:rgba(20,22,38,.4);z-index:50;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .15s ease;}
 .modal-overlay.show{opacity:1;pointer-events:auto;}

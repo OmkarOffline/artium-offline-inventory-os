@@ -120,7 +120,7 @@ async function renderRoomCards(container, state, assets) {
 
 async function renderActivity(container, state) {
   try {
-    const activity = await listRecentActivity(state.activeCentreId, 8);
+    const activity = await listRecentActivity(state.activeCentreId, 5);
     if (!activity.length) {
       renderEmptyState(container, {
         title: "No activity yet",
