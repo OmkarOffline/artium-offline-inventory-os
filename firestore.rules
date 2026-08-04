@@ -1,0 +1,291 @@
+rules_version = '2';
+
+// =============================================================================
+// Inventory OS — Firestore Security Rules
+// Matched to Blueprint Chapters 3 (roles), 10 (security philosophy) and 11
+// (data model + permission matrix). This is the real authority — the UI only
+// hides controls for convenience; a manipulated frontend must still fail here.
+//
+// Collection-structure note: Chapter 11 listed a single /settings collection
+// for all reference data. Asset Types, Vendors and Asset Masters need to be
+// creatable inline by Centre Admins mid-workflow (per Chapters 4 and 5),
+// which isn't possible with per-field permissions on one shared document —
+// so those three live in their own top-level collections instead, each with
+// its own create/update/delete rules below. /settings remains for
+// Owner-only, app-wide config (notification thresholds, email templates).
+// =============================================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // -------------------------------------------------------------------
+    // Helpers
+    // -------------------------------------------------------------------
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isArtiumAccount() {
+      return isSignedIn() &&
+        request.auth.token.email.matches('.*@artiumacademy[.]com$');
+    }
+
+    // Bootstrap-only allowance for the two seed Owners (Blueprint Chapter 3).
+    // Used exactly once per account, the moment /users/{uid} doesn't exist
+    // yet. After that first write, this clause never matches again for that
+    // account because the document already exists.
+    function isSeedOwnerEmail() {
+      return request.auth.token.email in
+        ['omkar@artiumacademy.com', 'padma@artiumacademy.com'];
+    }
+
+    function myProfile() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isOwner() {
+      return isArtiumAccount() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        myProfile().role == 'owner' &&
+        myProfile().disabled != true;
+    }
+
+    function isCentreAdmin() {
+      return isArtiumAccount() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        myProfile().role == 'centre_admin' &&
+        myProfile().disabled != true;
+    }
+
+    function isActiveUser() {
+      return isArtiumAccount() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        myProfile().disabled != true;
+    }
+
+    function assignedToCentre(centreId) {
+      return centreId in myProfile().assignedCentres;
+    }
+
+    // Centre Admins may only touch operational data inside their own
+    // centre(s) — this is the server-side enforcement of Chapter 11's
+    // "Centre Isolation" requirement. Owners bypass this entirely.
+    function canWriteInCentre(centreId) {
+      return isOwner() || (isCentreAdmin() && assignedToCentre(centreId));
+    }
+
+    // -------------------------------------------------------------------
+    // /users — identity, role, assigned centres, workspace preferences
+    // -------------------------------------------------------------------
+    match /users/{userId} {
+      // Everyone may always read their OWN document, even before it exists
+      // (the client checks existence itself via snap.exists()) — required
+      // for first-login bootstrap. isActiveUser() alone would deadlock here
+      // since it requires the very document being read to already exist.
+      allow read: if isActiveUser() || (isArtiumAccount() && request.auth.uid == userId);
+
+      // First-login bootstrap. Two shapes are allowed to self-create:
+      //  1. The two seed Owner accounts, creating themselves as role "owner".
+      //  2. Any other @artiumacademy.com account, but ONLY as a powerless,
+      //     disabled, pending-approval Viewer — this is what makes a new
+      //     team member visible to an Owner in the Users page without ever
+      //     granting them real access on their own. They cannot set their
+      //     own role, enable themselves, or pre-assign themselves a centre.
+      // An Owner can always create/update any /users document directly.
+      allow create: if isOwner() ||
+        (isArtiumAccount() &&
+         request.auth.uid == userId &&
+         isSeedOwnerEmail() &&
+         request.resource.data.role == 'owner') ||
+        (isArtiumAccount() &&
+         request.auth.uid == userId &&
+         request.resource.data.role == 'viewer' &&
+         request.resource.data.disabled == true &&
+         request.resource.data.pendingApproval == true &&
+         request.resource.data.assignedCentres.size() == 0);
+
+      // Owners can edit anyone (role, assignedCentres, disabled). Users may
+      // only ever touch their own workspacePreferences field on their own
+      // document — never their own role or assigned centres.
+      allow update: if isOwner() ||
+        (request.auth.uid == userId &&
+         request.resource.data.diff(resource.data).affectedKeys()
+           .hasOnly(['workspacePreferences']));
+
+      allow delete: if false; // Users are disabled, never deleted — preserves attribution on history.
+    }
+
+    // -------------------------------------------------------------------
+    // /centres, /rooms — structural reference data, Owner-managed
+    // -------------------------------------------------------------------
+    match /centres/{centreId} {
+      allow read: if isActiveUser();
+      allow write: if isOwner();
+    }
+
+    match /rooms/{roomId} {
+      allow read: if isActiveUser();
+      allow write: if isOwner();
+    }
+
+    // -------------------------------------------------------------------
+    // /assetTypes — Chapter 4: centrally managed but must stay extensible.
+    // Anyone actively adding assets can create a new type inline; only
+    // Owners may rename or remove one (renaming/removing affects Asset ID
+    // generation for every future asset of that type).
+    // -------------------------------------------------------------------
+    match /assetTypes/{typeId} {
+      allow read: if isActiveUser();
+      allow create: if isOwner() || isCentreAdmin();
+      allow update, delete: if isOwner();
+    }
+
+    // -------------------------------------------------------------------
+    // /assetMasters — Chapter 4/6: catalogue of asset specs, not instances.
+    // -------------------------------------------------------------------
+    match /assetMasters/{masterId} {
+      allow read: if isActiveUser();
+      allow create, update: if isOwner() || isCentreAdmin();
+      allow delete: if isOwner();
+    }
+
+    // -------------------------------------------------------------------
+    // /vendors — Chapter 5: creatable inline during Add Asset / Repair.
+    // -------------------------------------------------------------------
+    match /vendors/{vendorId} {
+      allow read: if isActiveUser();
+      allow create, update: if isOwner() || isCentreAdmin();
+      allow delete: if isOwner();
+    }
+
+    // -------------------------------------------------------------------
+    // /assets — the central entity. Centre-isolated for Centre Admins.
+    // Never hard-deleted, ever — disposal is a workflow, not a delete
+    // (Chapter 3/4/5). This rule enforces that at the database layer.
+    // -------------------------------------------------------------------
+    match /assets/{assetId} {
+      allow read: if isOwner() ||
+        (isActiveUser() && assignedToCentre(resource.data.centreId));
+
+      allow create: if canWriteInCentre(request.resource.data.centreId);
+
+      // Only the asset's CURRENT (source) centre needs to authorize the
+      // write — not the destination centre too. This is what makes Centre
+      // Transfer usable by a Centre Admin assigned to only one centre: they
+      // have authority over the asset because it currently sits in their
+      // centre, and that authority is what lets them move it onward.
+      allow update: if isOwner() ||
+        (isCentreAdmin() && assignedToCentre(resource.data.centreId));
+
+      allow delete: if false; // Assets are archived via Disposal, never deleted.
+    }
+
+    // -------------------------------------------------------------------
+    // /repairs — Chapter 7: full lifecycle tracked, centre-isolated.
+    // -------------------------------------------------------------------
+    match /repairs/{repairId} {
+      allow read: if isOwner() ||
+        (isActiveUser() && assignedToCentre(resource.data.centreId));
+      allow create: if canWriteInCentre(request.resource.data.centreId);
+      allow update: if isOwner() ||
+        (isCentreAdmin() && assignedToCentre(resource.data.centreId));
+      allow delete: if false; // Repair history is permanent (Chapter 3).
+    }
+
+    // -------------------------------------------------------------------
+    // /audits — Chapter 7: Owner-conducted, immutable once completed.
+    // Centre Admins and Viewers may read reports for their own centre.
+    // -------------------------------------------------------------------
+    match /audits/{auditId} {
+      allow read: if isOwner() ||
+        (isActiveUser() && assignedToCentre(resource.data.centreId));
+      allow create: if isOwner();
+      // Once an audit is finalized (status "completed") it becomes as
+      // immutable as an activity record — corrections are a new audit,
+      // not an edit to the old one.
+      allow update: if isOwner() && resource.data.status != 'completed';
+      allow delete: if false; // Audit reports remain permanently accessible.
+    }
+
+    // -------------------------------------------------------------------
+    // /auditFlags — Chapter 7/11 extension (Milestone 4): one record per
+    // asset found Missing or Damaged during an audit. This is what powers
+    // the "notify the Owners" requirement — Owners see unacknowledged
+    // flags in the notification bell until they've reviewed each one.
+    // Acknowledging a flag only ever means "an Owner has seen this and
+    // will follow up manually" — it never auto-triggers Repair or
+    // Disposal, matching the decision that audits report facts and leave
+    // the follow-up action to a human.
+    // -------------------------------------------------------------------
+    match /auditFlags/{flagId} {
+      allow read: if isOwner() ||
+        (isActiveUser() && assignedToCentre(resource.data.centreId));
+      allow create: if isOwner();
+      allow update: if isOwner() &&
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['acknowledged', 'acknowledgedBy', 'acknowledgedAt']);
+      allow delete: if false;
+    }
+
+    // -------------------------------------------------------------------
+    // /disposalRequests — Chapter 4/7/11: Centre Admins may request;
+    // approval/rejection is Owner-only, enforced here regardless of what
+    // the frontend does. This is the rule Chapter 11 calls out explicitly.
+    // -------------------------------------------------------------------
+    match /disposalRequests/{requestId} {
+      allow read: if isOwner() ||
+        (isActiveUser() && assignedToCentre(resource.data.centreId));
+      allow create: if canWriteInCentre(request.resource.data.centreId) &&
+        request.resource.data.status == 'pending';
+      allow update: if isOwner(); // Approve / reject / request info — Owner only.
+      allow delete: if false;
+    }
+
+    // -------------------------------------------------------------------
+    // /counters — implementation detail behind Asset ID generation
+    // (Chapter 4): one document per Centre + Asset Type combination,
+    // holding the last-used sequence number. Incremented via a client-side
+    // transaction at Add Asset time. Never read or written directly by any
+    // UI other than the ID-generation code path.
+    // -------------------------------------------------------------------
+    match /counters/{counterId} {
+      allow read: if isActiveUser();
+      allow write: if canWriteInCentre(request.resource.data.centreId);
+    }
+
+    // -------------------------------------------------------------------
+    // /activities — Chapter 7/11: system-generated, append-only. Never
+    // editable by anyone, including Owners — corrections happen by adding
+    // a new activity record, not altering the past (Principle 2).
+    // -------------------------------------------------------------------
+    match /activities/{activityId} {
+      allow read: if isOwner() ||
+        (isActiveUser() && assignedToCentre(resource.data.centreId));
+      allow create: if isActiveUser() &&
+        request.resource.data.userId == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    // -------------------------------------------------------------------
+    // /settings — app-wide config (notification thresholds, email
+    // templates). Owner-only in both directions.
+    // -------------------------------------------------------------------
+    match /settings/{settingId} {
+      allow read: if isActiveUser();
+      allow write: if isOwner();
+    }
+
+    // -------------------------------------------------------------------
+    // /system — reserved for future backup/restore metadata. Owner-only.
+    // -------------------------------------------------------------------
+    match /system/{docId} {
+      allow read, write: if isOwner();
+    }
+
+    // Deny everything else by default — no collection is accessible unless
+    // explicitly matched above.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

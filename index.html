@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Inventory OS — Artium Academy</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/theme.css">
+<link rel="stylesheet" href="css/layout.css">
+<link rel="stylesheet" href="css/components.css">
+<link rel="stylesheet" href="css/register.css">
+<link rel="stylesheet" href="css/profile.css">
+</head>
+<body>
+  <div id="app">
+    <!-- Rendered entirely by js/app.js after auth resolves. Kept empty here
+         so unauthenticated users never see a flash of app shell before the
+         auth guard redirects them to login.html. -->
+  </div>
+
+  <script>
+    // Plain (non-module) script so it still runs even when app.js's ES module
+    // import is blocked — which is exactly the case this is here to catch.
+    if (window.location.protocol === "file:") {
+      document.getElementById("app").innerHTML =
+        '<div style="max-width:420px;margin:80px auto;padding:24px;font-family:sans-serif;' +
+        'font-size:14px;line-height:1.6;color:#40465a;text-align:center;">' +
+        '<strong style="color:#14161f;">This page needs to be served over HTTP.</strong><br><br>' +
+        'You opened this file directly (file://), which blocks the scripts Inventory OS ' +
+        'needs to run. From the project folder, run <code>npx serve .</code> or ' +
+        '<code>python3 -m http.server 8080</code>, then open ' +
+        '<code>http://localhost:.../login.html</code> instead.</div>';
+    }
+  </script>
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>

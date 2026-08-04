@@ -1,0 +1,115 @@
+/* =========================================================================
+   Inventory OS — Design Tokens
+   Inherited directly from Artium Launch OS (light/embossed design language).
+   Do not fork these values per-page — every screen should read from these
+   tokens so Inventory OS and Launch OS remain visually one product family.
+   Source reference: https://omkaroffline.github.io/offline-centre-launch-os/
+   ========================================================================= */
+
+:root{
+  /* ---- Surfaces ---- */
+  --bg:#f4f5f9;
+  --bg-elevated:#ffffff;
+  --bg-panel:#ffffff;
+  --bg-hover:#f0f1f7;
+  --bg-input:#f7f8fc;
+
+  /* ---- Borders ---- */
+  --border:#e3e6ee;
+  --border-soft:#ebedf3;
+
+  /* ---- Text ---- */
+  --text:#14161f;
+  --text-dim:#40465a;
+  --text-faint:#5c6479;
+
+  /* ---- Accent (primary brand purple) ---- */
+  --accent:#5b62ea;
+  --accent-2:#7c82f0;
+  --accent-dim:#e8e9fd;
+  --accent-soft:rgba(91,98,234,.10);
+
+  /* ---- Status colours — semantic only, never decorative ----
+     green    = Active / Completed / Verified
+     amber    = Warning / Warranty Expiring / Label Reprint Required
+     red      = Pending Disposal / Missing / Error
+     blue     = Informational
+     grey     = Archived / Disabled
+     purple   = reserved for secondary accents (e.g. custodian avatars) */
+  --green:#189866;
+  --green-soft:rgba(24,152,102,.12);
+  --amber:#c97a12;
+  --amber-soft:rgba(201,122,18,.12);
+  --red:#d3423f;
+  --red-soft:rgba(211,66,63,.10);
+  --blue:#2f6fd6;
+  --blue-soft:rgba(47,111,214,.12);
+  --purple:#7c4fe0;
+  --purple-soft:rgba(124,79,224,.12);
+  --gray:#6b7280;
+  --gray-soft:rgba(107,114,128,.10);
+
+  /* ---- Shape ---- */
+  --radius-sm:8px;
+  --radius:12px;
+  --radius-lg:18px;
+
+  /* ---- Elevation ---- */
+  --shadow-lg:0 24px 60px rgba(25,28,50,.16), 0 4px 14px rgba(25,28,50,.06);
+  --shadow-md:0 10px 24px rgba(25,28,50,.10);
+  --emboss:0 1px 0 rgba(255,255,255,.8) inset, 0 1px 2px rgba(25,28,50,.07), 0 1px 0 rgba(25,28,50,.03);
+  --emboss-hover:0 1px 0 rgba(255,255,255,.9) inset, 0 6px 14px rgba(25,28,50,.10);
+  --emboss-active:0 2px 5px rgba(25,28,50,.10) inset;
+
+  /* ---- Typography ---- */
+  --font:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+
+  /* ---- Structural constants ---- */
+  --sidebar-w:270px;
+  --sidebar-w-collapsed:72px;
+  --panel-w:440px;
+}
+
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100%;}
+body{
+  font-family:var(--font);
+  background:var(--bg);
+  color:var(--text);
+  font-size:13.5px;
+  line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+  overflow:hidden;
+}
+::-webkit-scrollbar{width:9px;height:9px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:#d7dae4;border-radius:8px;}
+::-webkit-scrollbar-thumb:hover{background:#c3c7d6;}
+button{font-family:inherit;cursor:pointer;}
+input,select,textarea{font-family:inherit;}
+a{color:inherit;text-decoration:none;}
+.hidden{display:none !important;}
+
+/* ---- Accessibility: visible keyboard focus ----
+   Every interactive element gets a clear, on-brand focus ring when reached
+   via keyboard (mouse/touch clicks don't trigger :focus-visible, so this
+   never adds visual noise to normal pointer use). Chapter 9/12: no dead
+   ends, no invisible state. */
+a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible,
+textarea:focus-visible, [tabindex]:focus-visible{
+  outline:2px solid var(--accent);
+  outline-offset:2px;
+  border-radius:4px;
+}
+
+/* ---- Accessibility: respect reduced-motion preference ----
+   Users who've asked their OS for less motion get near-instant transitions
+   everywhere instead of the sidebar/panel/modal/toast animations. */
+@media (prefers-reduced-motion: reduce){
+  *, *::before, *::after{
+    animation-duration:.001ms !important;
+    animation-iteration-count:1 !important;
+    transition-duration:.001ms !important;
+    scroll-behavior:auto !important;
+  }
+}

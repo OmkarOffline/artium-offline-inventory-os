@@ -1,0 +1,33 @@
+/* =========================================================================
+   Inventory OS — Register View
+   Table structure/behaviour lives inline in register.js (built dynamically);
+   this file holds the presentation refinements that don't change per-row.
+   ========================================================================= */
+
+#registerTableWrap {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+  overflow: auto;
+  box-shadow: var(--emboss);
+}
+
+#registerTableWrap table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+#registerTableWrap thead {
+  position: sticky;
+  top: 0;
+  background: var(--bg-elevated);
+  z-index: 2;
+}
+
+#registerTableWrap tbody tr:nth-child(even) {
+  background: rgba(0,0,0,0.012);
+}
+
+#registerTableWrap tbody tr:hover {
+  background: var(--bg-hover) !important;
+}

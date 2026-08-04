@@ -1,0 +1,18 @@
+/* =========================================================================
+   Inventory OS — Asset Profile panel refinements
+   Structural panel/quick-glance styles live in components.css; this file
+   adds the section rhythm specific to the Asset Profile's longer content.
+   ========================================================================= */
+
+.panel-body .panel-section-title {
+  padding-top: 4px;
+  border-top: 1px solid var(--border-soft);
+}
+.panel-body .panel-section-title:first-child {
+  border-top: none;
+  padding-top: 0;
+}
+
+.panel-body .field-group + .field-group {
+  margin-top: 2px;
+}
