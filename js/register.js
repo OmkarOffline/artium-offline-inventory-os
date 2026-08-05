@@ -163,9 +163,18 @@ export async function renderRegister(container, state) {
 
     tableWrap.innerHTML = "";
     if (!assets.length) {
+      const roomFiltered = !!state.registerRoomFilter && !searchTerm;
       renderEmptyState(tableWrap, {
-        title: searchTerm ? "No assets match your search" : "No assets in this centre yet",
-        subtitle: searchTerm ? "Try a different search term." : "Add the first asset to get started.",
+        title: searchTerm
+          ? "No assets match your search"
+          : roomFiltered
+            ? `${roomDisplayName(state.registerRoomFilter.name)} is looking a little bare`
+            : "No assets in this centre yet",
+        subtitle: searchTerm
+          ? "Try a different search term."
+          : roomFiltered
+            ? "Nothing's living here yet — add an asset, or transfer one in from another room."
+            : "Add the first asset to get started.",
         actionLabel: searchTerm ? null : "Add Asset",
         onAction: searchTerm ? null : () => openAddAssetModal(state, () => load())
       });

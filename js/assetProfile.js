@@ -146,7 +146,7 @@ export async function openAssetProfile(assetId, state, onChanged) {
         ["Room", roomName],
         ["Current Custodian", asset.currentCustodian],
         ["Condition", asset.condition],
-        ["Label Status", asset.labelReprintRequired ? "Label Reprint Required" : "Up to date"]
+        ["Label Status", asset.labelReprintRequired ? "Label Reprint Required" : "Up to date", asset.labelReprintRequired ? "warn" : null]
       ]));
     }
 
@@ -159,10 +159,10 @@ export async function openAssetProfile(assetId, state, onChanged) {
       ].filter(Boolean)));
     } else {
       body.appendChild(readonlyGrid([
-        ["Purchase Date", formatDate(asset.purchaseDate)],
-        ["Purchase Cost", formatCurrency(asset.purchaseCost)],
+        ["Purchase Date", formatDate(asset.purchaseDate), "date"],
+        ["Purchase Cost", formatCurrency(asset.purchaseCost), "money"],
         ["Vendor", vendorName],
-        asset.warrantyApplicable ? ["Warranty Expiry", formatDate(asset.warrantyExpiry)] : ["Warranty", "Not applicable"]
+        asset.warrantyApplicable ? ["Warranty Expiry", formatDate(asset.warrantyExpiry), "date"] : ["Warranty", "Not applicable"]
       ].filter(Boolean)));
     }
 
@@ -179,8 +179,10 @@ export async function openAssetProfile(assetId, state, onChanged) {
     body.appendChild(sectionTitle("Notes"));
     if (editMode) {
       body.appendChild(el("textarea", { class: "field-input", id: "f_remarks" }, asset.remarks || ""));
+    } else if (asset.remarks) {
+      body.appendChild(el("div", { class: "panel-value", style: "white-space:pre-wrap;font-weight:500;" }, asset.remarks));
     } else {
-      body.appendChild(el("div", { style: "font-size:12.5px;color:var(--text-dim);white-space:pre-wrap;" }, asset.remarks || "No remarks yet."));
+      body.appendChild(renderInlineEmpty("No remarks yet."));
     }
 
     body.appendChild(sectionTitle("History"));
@@ -481,10 +483,10 @@ function renderActivityList(container, items, emptyText) {
 }
 
 function sectionTitle(text) {
-  return el("div", { class: "panel-section-title", style: "margin-top:4px;" }, text);
+  return el("div", { class: "panel-section-title" }, text);
 }
 function subsectionLabel(text) {
-  return el("div", { style: "font-size:11px;font-weight:700;color:var(--text-faint);text-transform:uppercase;letter-spacing:.04em;margin:8px 0 4px;" }, text);
+  return el("div", { class: "panel-subsection-label" }, text);
 }
 function glanceItem(label, value) {
   return el("div", { class: "qg-item" }, [
@@ -492,11 +494,12 @@ function glanceItem(label, value) {
     el("div", { class: "qg-value" }, value || "—")
   ]);
 }
+/** variant: null | "money" | "date" | "warn" — tints the value for the rows that benefit from it. */
 function readonlyGrid(pairs) {
   return el("div", { class: "field-row", style: "display:grid;grid-template-columns:1fr 1fr;gap:10px;" },
-    pairs.map(([label, value]) => el("div", { class: "field-group" }, [
+    pairs.map(([label, value, variant]) => el("div", { class: "field-group" }, [
       el("div", { class: "field-label" }, label),
-      el("div", { style: "font-size:12.5px;color:var(--text);" }, value || "—")
+      el("div", { class: `panel-value${variant ? ` panel-value-${variant}` : ""}` }, value || "—")
     ]))
   );
 }
@@ -509,5 +512,5 @@ function editableGrid(fields) {
   );
 }
 function renderInlineEmpty(text) {
-  return el("div", { style: "font-size:11.5px;color:var(--text-faint);padding:6px 0;" }, text);
+  return el("div", { class: "panel-empty-note" }, text);
 }

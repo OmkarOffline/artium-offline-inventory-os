@@ -1,18 +1,79 @@
 /* =========================================================================
    Inventory OS — Asset Profile panel refinements
-   Structural panel/quick-glance styles live in components.css; this file
-   adds the section rhythm specific to the Asset Profile's longer content.
+   The panel's section titles (Identity, Current Assignment, Purchase
+   Information, Photo, Notes, History, Assignment History, Activity
+   Timeline) and its History sub-labels had never actually been given their
+   own typography — only spacing/dividers were styled, so every heading
+   rendered as plain browser-default text and the whole panel read as one
+   flat wall of same-weight copy. This gives the panel real hierarchy:
+   bold accent-marked section titles, tinted sub-labels, and a splash of
+   semantic colour on values that benefit from it (money, dates), without
+   turning the panel into a rainbow.
    ========================================================================= */
 
 .panel-body .panel-section-title {
-  padding-top: 4px;
+  padding-top: 14px;
+  margin-top: 4px;
   border-top: 1px solid var(--border-soft);
+  font-size: 13.5px;
+  font-weight: 800;
+  color: var(--text);
+  letter-spacing: -.005em;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.panel-body .panel-section-title::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+  flex: none;
+  box-shadow: 0 0 0 3px var(--accent-soft);
 }
 .panel-body .panel-section-title:first-child {
   border-top: none;
   padding-top: 0;
+  margin-top: 0;
 }
 
 .panel-body .field-group + .field-group {
   margin-top: 2px;
 }
+
+/* Sub-labels within History: Room/Centre Transfer History, Asset ID
+   History, Repair History, Audit History, Disposal History. */
+.panel-subsection-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  margin: 10px 0 5px;
+}
+
+/* Small "nothing recorded" notes scattered through History/Notes/Photo —
+   a soft card instead of bare floating text, so the panel doesn't read as
+   one continuous paragraph with no visual stops. */
+.panel-empty-note {
+  font-size: 11.5px;
+  color: var(--text-faint);
+  background: var(--bg-input);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+}
+
+/* Readonly value grid (Identity / Current Assignment / Purchase
+   Information). Base value styling plus a couple of semantic tints —
+   money reads green, dates read blue — matching the colour language
+   already used for status badges elsewhere in the app. */
+.panel-value {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text);
+}
+.panel-value-money { color: var(--green); font-weight: 700; }
+.panel-value-date { color: var(--blue); }
+.panel-value-warn { color: var(--amber); font-weight: 700; }
