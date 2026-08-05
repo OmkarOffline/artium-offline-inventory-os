@@ -15,6 +15,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { el, showToast, formatDateTime, renderEmptyState, roomDisplayName } from "./utils.js";
 import { logActivity } from "./activity.js";
+import { CLOSE_ICON } from "./icons.js";
 
 export async function listAudits(centreId) {
   const snap = await getDocs(query(collection(db, "audits"), where("centreId", "==", centreId), orderBy("completedAt", "desc")));
@@ -56,7 +57,7 @@ export function openStartAuditModal(state, onDone) {
   ]);
 
   const modal = el("div", { class: "modal", style: "max-width:560px;" }, [
-    el("div", { class: "modal-header" }, [el("h2", {}, "Start Audit"), el("button", { class: "btn-icon-only", "aria-label": "Close", onclick: () => overlay.remove() }, "×")]),
+    el("div", { class: "modal-header" }, [el("h2", {}, "Start Audit"), el("button", { class: "btn-icon-only", "aria-label": "Close", onclick: () => overlay.remove() }, [el("img", { src: CLOSE_ICON, alt: "", class: "icon-img", loading: "lazy" })])]),
     bodyWrap,
     el("div", { class: "modal-footer" }, [
       el("button", { class: "btn btn-ghost", onclick: () => overlay.remove() }, "Cancel"),

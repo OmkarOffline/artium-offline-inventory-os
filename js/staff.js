@@ -14,6 +14,7 @@ import {
   collection, doc, addDoc, updateDoc, getDocs, query, where, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { el, renderEmptyState, showToast } from "./utils.js";
+import { CLOSE_ICON } from "./icons.js";
 
 export const DESIGNATIONS = ["Teacher", "Academic Counsellor", "Centre Head", "HR", "Marketing Executive"];
 
@@ -158,7 +159,7 @@ export function openStaffModal(existing, state, onSaved) {
   const modal = el("div", { class: "modal" }, [
     el("div", { class: "modal-header" }, [
       el("h2", {}, existing ? "Edit Staff" : "Add Staff"),
-      el("button", { class: "btn-icon-only", "aria-label": "Close", onclick: () => overlay.remove() }, "×")
+      el("button", { class: "btn-icon-only", "aria-label": "Close", onclick: () => overlay.remove() }, [el("img", { src: CLOSE_ICON, alt: "", class: "icon-img", loading: "lazy" })])
     ]),
     el("div", { class: "modal-body" }, [
       el("div", { class: "field-group" }, [el("div", { class: "field-label" }, "Name"), nameInput]),

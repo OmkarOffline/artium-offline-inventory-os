@@ -17,6 +17,7 @@ import { el, showToast, roomDisplayName } from "./utils.js";
 import { logActivity } from "./activity.js";
 import { nextSequence, buildAssetId } from "./addAsset.js";
 import { listAssetTypes } from "./assetMaster.js";
+import { CLOSE_ICON } from "./icons.js";
 
 /** The sequence segment is always the last '-'-delimited part of the Asset ID. */
 function currentSequence(assetId) {
@@ -32,7 +33,7 @@ export async function openRoomTransferModal(asset, state, onDone) {
   const overlay = el("div", { class: "modal-overlay show", role: "dialog", "aria-modal": "true" });
   const select = el("select", { class: "field-input" }, rooms.map((r) => new Option(roomDisplayName(r.name), r.id)));
   const modal = el("div", { class: "modal" }, [
-    el("div", { class: "modal-header" }, [el("h2", {}, "Transfer Room"), el("button", { class: "btn-icon-only", "aria-label": "Close", onclick: () => overlay.remove() }, "×")]),
+    el("div", { class: "modal-header" }, [el("h2", {}, "Transfer Room"), el("button", { class: "btn-icon-only", "aria-label": "Close", onclick: () => overlay.remove() }, [el("img", { src: CLOSE_ICON, alt: "", class: "icon-img", loading: "lazy" })])]),
     el("div", { class: "modal-body" }, [
       el("div", { style: "font-size:12px;color:var(--text-faint);" }, `Moving ${asset.assetId} within Bangalore – Borewell Road. A new Asset ID will be generated and the physical label will need reprinting.`),
       el("div", { class: "field-group" }, [el("div", { class: "field-label" }, "New Room"), select])
@@ -92,7 +93,7 @@ export async function openCorrectAssetTypeModal(asset, state, onDone) {
   const overlay = el("div", { class: "modal-overlay show", role: "dialog", "aria-modal": "true" });
   const select = el("select", { class: "field-input" }, options.map((t) => new Option(`${t.code} — ${t.name}`, t.code)));
   const modal = el("div", { class: "modal" }, [
-    el("div", { class: "modal-header" }, [el("h2", {}, "Correct Asset Type"), el("button", { class: "btn-icon-only", "aria-label": "Close", onclick: () => overlay.remove() }, "×")]),
+    el("div", { class: "modal-header" }, [el("h2", {}, "Correct Asset Type"), el("button", { class: "btn-icon-only", "aria-label": "Close", onclick: () => overlay.remove() }, [el("img", { src: CLOSE_ICON, alt: "", class: "icon-img", loading: "lazy" })])]),
     el("div", { class: "modal-body" }, [
       el("div", { style: "font-size:12px;color:var(--text-faint);" },
         `${asset.assetId} is currently typed "${asset.assetTypeCode}". Choosing a different type here regenerates this asset's own Asset ID with the corrected code — its previous ID is kept in history, and the physical label will need reprinting.`),
@@ -150,7 +151,7 @@ export async function openCentreTransferModal(asset, state, onDone) {
   ]);
 
   const modal = el("div", { class: "modal" }, [
-    el("div", { class: "modal-header" }, [el("h2", {}, "Transfer Centre"), el("button", { class: "btn-icon-only", "aria-label": "Close", onclick: () => overlay.remove() }, "×")]),
+    el("div", { class: "modal-header" }, [el("h2", {}, "Transfer Centre"), el("button", { class: "btn-icon-only", "aria-label": "Close", onclick: () => overlay.remove() }, [el("img", { src: CLOSE_ICON, alt: "", class: "icon-img", loading: "lazy" })])]),
     el("div", { class: "modal-body" }, [
       el("div", { style: "font-size:12px;color:var(--text-faint);" }, `Permanently moving ${asset.assetId} to a different centre. A new Asset ID will be generated using the destination centre's own numbering, and the physical label will need reprinting. Full history is preserved.`),
       el("div", { class: "field-group" }, [el("div", { class: "field-label" }, "Destination Centre"), centreSelect]),

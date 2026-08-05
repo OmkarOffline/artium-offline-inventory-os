@@ -16,6 +16,7 @@ import { downloadJSON } from "./csv.js";
 import { invalidateRoomsCache } from "./refcache.js";
 import { logActivity } from "./activity.js";
 import { listStaff, listActiveStaff, courseCodesLabel } from "./staff.js";
+import { CLOSE_ICON } from "./icons.js";
 
 const BACKUP_COLLECTIONS = [
   "centres", "rooms", "assetTypes", "assetMasters", "vendors", "assets",
@@ -161,7 +162,7 @@ async function openRoomFormModal(existing, state, centreId, onDone) {
   teacherSelect.value = currentName;
 
   const modal = el("div", { class: "modal" }, [
-    el("div", { class: "modal-header" }, [el("h2", {}, isEdit ? "Edit Room" : "Add Room"), el("button", { class: "btn-icon-only", "aria-label": "Close", onclick: () => overlay.remove() }, "×")]),
+    el("div", { class: "modal-header" }, [el("h2", {}, isEdit ? "Edit Room" : "Add Room"), el("button", { class: "btn-icon-only", "aria-label": "Close", onclick: () => overlay.remove() }, [el("img", { src: CLOSE_ICON, alt: "", class: "icon-img", loading: "lazy" })])]),
     el("div", { class: "modal-body" }, [
       el("div", { class: "field-group" }, [el("div", { class: "field-label" }, "Room Name"), nameInput]),
       el("div", { class: "field-group" }, [el("div", { class: "field-label" }, "Room Code (used in Asset IDs)"), codeInput]),

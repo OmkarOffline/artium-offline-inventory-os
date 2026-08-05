@@ -15,6 +15,7 @@ import { el, showToast, roomDisplayName } from "./utils.js";
 import { listAssetMasters, listAssetTypes, createAssetType, createAssetMaster, updateAssetMaster, ASSET_CATEGORIES } from "./assetMaster.js";
 import { listVendors, openVendorModal } from "./vendors.js";
 import { logActivity } from "./activity.js";
+import { CLOSE_ICON } from "./icons.js";
 
 /**
  * Atomically allocate the next sequence number for a Centre + Asset Type
@@ -60,7 +61,7 @@ export function openAddAssetModal(state, onSaved) {
 
   modal.appendChild(el("div", { class: "modal-header" }, [
     el("h2", {}, "Add Asset"),
-    el("button", { class: "btn-icon-only", "aria-label": "Close", onclick: () => overlay.remove() }, "×")
+    el("button", { class: "btn-icon-only", "aria-label": "Close", onclick: () => overlay.remove() }, [el("img", { src: CLOSE_ICON, alt: "", class: "icon-img", loading: "lazy" })])
   ]));
 
   const body = el("div", { class: "modal-body" });
@@ -244,7 +245,7 @@ export function openAddAssetModal(state, onSaved) {
     const innerOverlay = el("div", { class: "modal-overlay show", role: "dialog", "aria-modal": "true" });
     const typeSelectId = "nm_assetType";
     const inner = el("div", { class: "modal" }, [
-      el("div", { class: "modal-header" }, [el("h2", {}, isEdit ? "Edit Asset Master" : "New Asset Master"), el("button", { class: "btn-icon-only", "aria-label": "Close", onclick: () => innerOverlay.remove() }, "×")]),
+      el("div", { class: "modal-header" }, [el("h2", {}, isEdit ? "Edit Asset Master" : "New Asset Master"), el("button", { class: "btn-icon-only", "aria-label": "Close", onclick: () => innerOverlay.remove() }, [el("img", { src: CLOSE_ICON, alt: "", class: "icon-img", loading: "lazy" })])]),
       el("div", { class: "modal-body" }, [
         field("Asset Name", input("nm_assetName")),
         el("div", { class: "field-row" }, [

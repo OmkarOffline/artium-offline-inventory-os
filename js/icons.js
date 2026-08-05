@@ -16,6 +16,7 @@ function iconUrl(filename) {
 export const NOTIFICATIONS_ICON = iconUrl("Notifications.png");
 export const SIGNOUT_ICON = iconUrl("Sign-out.png");
 export const BACK_ICON = iconUrl("Back.png");
+export const CLOSE_ICON = iconUrl("Close.png");
 export const HOME_ICON = iconUrl("Home.png");
 export const ADD_ICON = iconUrl("Add.png");
 export const EDIT_ICON = iconUrl("Edit.png");

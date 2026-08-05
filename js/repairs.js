@@ -14,6 +14,7 @@ import {
 import { el, showToast, formatDate } from "./utils.js";
 import { logActivity } from "./activity.js";
 import { listVendors, openVendorModal } from "./vendors.js";
+import { CLOSE_ICON } from "./icons.js";
 
 export async function listRepairsForAsset(internalAssetNumber) {
   const snap = await getDocs(query(
@@ -30,7 +31,7 @@ export async function openSendForRepairModal(asset, state, onDone) {
 
   const vendorSelect = el("select", { class: "field-input", id: "rep_vendor" }, vendors.map((v) => new Option(v.companyName, v.id)));
   const modal = el("div", { class: "modal" }, [
-    el("div", { class: "modal-header" }, [el("h2", {}, "Send for Repair"), el("button", { class: "btn-icon-only", "aria-label": "Close", onclick: () => overlay.remove() }, "×")]),
+    el("div", { class: "modal-header" }, [el("h2", {}, "Send for Repair"), el("button", { class: "btn-icon-only", "aria-label": "Close", onclick: () => overlay.remove() }, [el("img", { src: CLOSE_ICON, alt: "", class: "icon-img", loading: "lazy" })])]),
     el("div", { class: "modal-body" }, [
       el("div", { class: "field-group" }, [
         el("div", { class: "field-label" }, "Vendor"),
@@ -105,7 +106,7 @@ export async function openReturnFromRepairModal(asset, state, onDone) {
 
   const overlay = el("div", { class: "modal-overlay show", role: "dialog", "aria-modal": "true" });
   const modal = el("div", { class: "modal" }, [
-    el("div", { class: "modal-header" }, [el("h2", {}, "Return from Repair"), el("button", { class: "btn-icon-only", "aria-label": "Close", onclick: () => overlay.remove() }, "×")]),
+    el("div", { class: "modal-header" }, [el("h2", {}, "Return from Repair"), el("button", { class: "btn-icon-only", "aria-label": "Close", onclick: () => overlay.remove() }, [el("img", { src: CLOSE_ICON, alt: "", class: "icon-img", loading: "lazy" })])]),
     el("div", { class: "modal-body" }, [
       el("div", { style: "font-size:12px;color:var(--text-faint);" }, `Closing the repair reported on ${formatDate(activeRepair.reportedDate)}.`),
       el("div", { class: "field-group" }, [el("div", { class: "field-label" }, "Actual Cost (₹)"),

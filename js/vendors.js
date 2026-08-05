@@ -12,7 +12,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { el, formatCurrency, formatDate, renderEmptyState, showToast } from "./utils.js";
 import { invalidateVendorsCache } from "./refcache.js";
-import { BACK_ICON } from "./icons.js";
+import { CLOSE_ICON } from "./icons.js";
 
 export const VENDOR_TYPES = ["E-commerce Platform", "Distributor", "Retailer", "D2C Brand"];
 
@@ -153,7 +153,7 @@ export function openVendorModal(existing, state, onSaved) {
   const modal = el("div", { class: "modal" }, [
     el("div", { class: "modal-header" }, [
       el("h2", {}, existing ? "Edit Vendor" : "Add Vendor"),
-      el("button", { class: "btn-icon-only", "aria-label": "Close", onclick: () => overlay.remove() }, "×")
+      el("button", { class: "btn-icon-only", "aria-label": "Close", onclick: () => overlay.remove() }, [el("img", { src: CLOSE_ICON, alt: "", class: "icon-img", loading: "lazy" })])
     ]),
     el("div", { class: "modal-body" }, [vendorFieldsForm(existing || {})]),
     el("div", { class: "modal-footer" }, [
@@ -188,8 +188,8 @@ export async function openVendorProfile(vendor, state, onChanged) {
   const overlay = el("div", { class: "overlay show", role: "dialog", "aria-modal": "true" });
   const panel = el("div", { class: "panel show" });
   panel.appendChild(el("div", { class: "panel-header" }, [
-    el("button", { class: "btn-icon-only", "aria-label": "Back", title: "Back", style: "margin-bottom:6px;", onclick: () => close() }, [
-      el("img", { src: BACK_ICON, alt: "", class: "icon-img", loading: "lazy" })
+    el("button", { class: "btn-icon-only", "aria-label": "Close", title: "Close", style: "margin-bottom:6px;", onclick: () => close() }, [
+      el("img", { src: CLOSE_ICON, alt: "", class: "icon-img", loading: "lazy" })
     ]),
     el("div", { class: "panel-crumb" }, "Vendor Directory"),
     el("div", { style: "font-size:19px;font-weight:700;" }, vendor.companyName)

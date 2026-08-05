@@ -13,6 +13,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { el, showToast, formatDate } from "./utils.js";
 import { logActivity } from "./activity.js";
+import { CLOSE_ICON } from "./icons.js";
 
 const REASONS = ["Damaged beyond repair", "Lost", "Obsolete / end of life", "Other"];
 
@@ -34,7 +35,7 @@ export function openDisposalRequestModal(asset, state, onDone) {
   const overlay = el("div", { class: "modal-overlay show", role: "dialog", "aria-modal": "true" });
   const reasonSelect = el("select", { class: "field-input", id: "disp_reason" }, REASONS.map((r) => new Option(r, r)));
   const modal = el("div", { class: "modal" }, [
-    el("div", { class: "modal-header" }, [el("h2", {}, "Request Disposal"), el("button", { class: "btn-icon-only", "aria-label": "Close", onclick: () => overlay.remove() }, "×")]),
+    el("div", { class: "modal-header" }, [el("h2", {}, "Request Disposal"), el("button", { class: "btn-icon-only", "aria-label": "Close", onclick: () => overlay.remove() }, [el("img", { src: CLOSE_ICON, alt: "", class: "icon-img", loading: "lazy" })])]),
     el("div", { class: "modal-body" }, [
       el("div", { style: "font-size:12px;color:var(--text-faint);" }, `Requesting disposal for ${asset.assetId}. This flags it Pending Disposal and sends it to the Owners for approval — nothing is removed until approved.`),
       el("div", { class: "field-group" }, [el("div", { class: "field-label" }, "Reason"), reasonSelect]),
@@ -135,7 +136,7 @@ export async function rejectDisposal(request, reasonNote, state, onDone) {
 export function openRejectDisposalModal(request, state, onDone) {
   const overlay = el("div", { class: "modal-overlay show", role: "dialog", "aria-modal": "true" });
   const modal = el("div", { class: "modal" }, [
-    el("div", { class: "modal-header" }, [el("h2", {}, "Reject Disposal"), el("button", { class: "btn-icon-only", "aria-label": "Close", onclick: () => overlay.remove() }, "×")]),
+    el("div", { class: "modal-header" }, [el("h2", {}, "Reject Disposal"), el("button", { class: "btn-icon-only", "aria-label": "Close", onclick: () => overlay.remove() }, [el("img", { src: CLOSE_ICON, alt: "", class: "icon-img", loading: "lazy" })])]),
     el("div", { class: "modal-body" }, [
       el("div", { class: "field-group" }, [el("div", { class: "field-label" }, "Reason (optional)"), el("textarea", { class: "field-input", id: "rej_notes" })])
     ]),

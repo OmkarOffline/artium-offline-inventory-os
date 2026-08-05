@@ -9,6 +9,7 @@
 import { db } from "./firebase.js";
 import { collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { el, formatDate, formatCurrency, statusBadge, renderEmptyState, debounce, roomDisplayName } from "./utils.js";
+import { CLOSE_ICON } from "./icons.js";
 import { openAddAssetModal } from "./addAsset.js";
 import { openAssetProfile } from "./assetProfile.js";
 import { downloadCSV } from "./csv.js";
@@ -360,7 +361,7 @@ function openSaveViewModal(state, onChange) {
   const overlay = el("div", { class: "modal-overlay show", role: "dialog", "aria-modal": "true" });
   const nameInput = el("input", { class: "field-input", type: "text", placeholder: "e.g. My Room, Under Repair" });
   const modal = el("div", { class: "modal" }, [
-    el("div", { class: "modal-header" }, [el("h2", {}, "Save Current View"), el("button", { class: "btn-icon-only", "aria-label": "Close", onclick: () => overlay.remove() }, "×")]),
+    el("div", { class: "modal-header" }, [el("h2", {}, "Save Current View"), el("button", { class: "btn-icon-only", "aria-label": "Close", onclick: () => overlay.remove() }, [el("img", { src: CLOSE_ICON, alt: "", class: "icon-img", loading: "lazy" })])]),
     el("div", { class: "modal-body" }, [
       el("div", { class: "field-group" }, [el("div", { class: "field-label" }, "View Name"), nameInput])
     ]),

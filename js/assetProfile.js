@@ -16,7 +16,7 @@ import { listRepairsForAsset, openSendForRepairModal, openReturnFromRepairModal,
 import { listVendors } from "./vendors.js";
 import { openDisposalRequestModal } from "./disposal.js";
 import { listAuditFlagsForAsset } from "./audits.js";
-import { categoryIconFor, BACK_ICON } from "./icons.js";
+import { categoryIconFor, CLOSE_ICON } from "./icons.js";
 
 export async function openAssetProfile(assetId, state, onChanged) {
   const overlay = el("div", { class: "overlay show", role: "dialog", "aria-modal": "true" });
@@ -97,8 +97,8 @@ export async function openAssetProfile(assetId, state, onChanged) {
     const categoryIcon = categoryIconFor(asset.category);
 
     panel.appendChild(el("div", { class: "panel-header" }, [
-      el("button", { class: "btn-icon-only", "aria-label": "Back", title: "Back", style: "margin-bottom:6px;", onclick: close }, [
-        el("img", { src: BACK_ICON, alt: "", class: "icon-img", loading: "lazy" })
+      el("button", { class: "btn-icon-only", "aria-label": "Close", title: "Close", style: "margin-bottom:6px;", onclick: close }, [
+        el("img", { src: CLOSE_ICON, alt: "", class: "icon-img", loading: "lazy" })
       ]),
       el("div", { class: "panel-crumb" }, "Register  ›  " + roomName),
       el("div", { style: "display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-top:6px;" }, [
@@ -285,7 +285,7 @@ export async function openAssetProfile(assetId, state, onChanged) {
     const modalOverlay = el("div", { class: "modal-overlay show", role: "dialog", "aria-modal": "true" });
     const input = el("input", { class: "field-input", type: "text", value: asset.currentCustodian || "" });
     const modal = el("div", { class: "modal" }, [
-      el("div", { class: "modal-header" }, [el("h2", {}, "Change Custodian"), el("button", { class: "btn-icon-only", "aria-label": "Close", onclick: () => modalOverlay.remove() }, "×")]),
+      el("div", { class: "modal-header" }, [el("h2", {}, "Change Custodian"), el("button", { class: "btn-icon-only", "aria-label": "Close", onclick: () => modalOverlay.remove() }, [el("img", { src: CLOSE_ICON, alt: "", class: "icon-img", loading: "lazy" })])]),
       el("div", { class: "modal-body" }, [
         el("div", { class: "field-group" }, [el("div", { class: "field-label" }, "Assign To"), input])
       ]),
