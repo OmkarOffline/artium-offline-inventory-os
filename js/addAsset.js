@@ -49,6 +49,10 @@ export function openAddAssetModal(state, onSaved) {
   let vendors = [];
   let selectedMaster = null;
   let copiedFields = {};
+  // True until the user manually types into Custodian — lets the room's
+  // assigned teacher keep auto-filling as they change rooms, but backs off
+  // the moment they've deliberately typed something themselves.
+  let custodianAutoFilled = true;
 
   const centreOptions = (state.profile.role === "owner")
     ? state.centres
@@ -88,6 +92,8 @@ export function openAddAssetModal(state, onSaved) {
     body.appendChild(manualSection);
 
     document.getElementById("f_centre").addEventListener("change", onCentreChange);
+    document.getElementById("f_room").addEventListener("change", applyRoomDefaultCustodian);
+    document.getElementById("f_custodian").addEventListener("input", () => { custodianAutoFilled = false; });
     document.getElementById("f_assetMaster").addEventListener("change", onMasterChange);
     document.getElementById("newAssetMasterBtn").addEventListener("click", () => openAssetMasterFormModal(null));
     document.getElementById("editAssetMasterBtn").addEventListener("click", () => {
@@ -158,6 +164,21 @@ export function openAddAssetModal(state, onSaved) {
       return;
     }
     rooms.forEach((r) => roomSelect.appendChild(new Option(r.name, r.id)));
+    applyRoomDefaultCustodian();
+  }
+
+  /**
+   * Pre-fills Custodian from the selected room's assigned teacher (set via
+   * Settings → Rooms). Only ever overwrites a value it filled in itself —
+   * never something the user actually typed — and only fills forward, so
+   * switching rooms mid-form keeps the field in sync with whichever room is
+   * currently selected.
+   */
+  function applyRoomDefaultCustodian() {
+    if (!custodianAutoFilled) return;
+    const custodianField = document.getElementById("f_custodian");
+    const room = rooms.find((r) => r.id === document.getElementById("f_room").value);
+    custodianField.value = room?.defaultCustodian || "";
   }
 
   async function onMasterChange() {

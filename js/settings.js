@@ -10,10 +10,11 @@
 // =============================================================================
 
 import { db } from "./firebase.js";
-import { collection, addDoc, updateDoc, doc, getDocs, query, where } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { collection, addDoc, updateDoc, doc, getDocs, query, where, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { el, showToast } from "./utils.js";
 import { downloadJSON } from "./csv.js";
 import { invalidateRoomsCache } from "./refcache.js";
+import { logActivity } from "./activity.js";
 
 const BACKUP_COLLECTIONS = [
   "centres", "rooms", "assetTypes", "assetMasters", "vendors", "assets",
@@ -111,8 +112,12 @@ async function renderRoomsCard(card, state) {
         style: "display:flex;justify-content:space-between;align-items:center;background:var(--bg-input);border-radius:var(--radius-sm);padding:8px 12px;margin-bottom:6px;"
       }, [
         el("div", {}, [
-          el("span", { style: "font-size:12.5px;font-weight:600;color:var(--text);" }, r.name),
-          el("span", { style: "font-size:11px;color:var(--text-faint);margin-left:8px;" }, r.code)
+          el("div", {}, [
+            el("span", { style: "font-size:12.5px;font-weight:600;color:var(--text);" }, r.name),
+            el("span", { style: "font-size:11px;color:var(--text-faint);margin-left:8px;" }, r.code)
+          ]),
+          el("div", { style: "font-size:11px;color:var(--text-faint);margin-top:2px;" },
+            r.defaultCustodian ? `Assigned teacher: ${r.defaultCustodian}` : "No teacher assigned")
         ]),
         el("button", { class: "btn btn-ghost btn-sm", onclick: () => openRoomFormModal(r, state, centreSelect.value, loadRooms) }, "Edit")
       ]));
@@ -130,28 +135,46 @@ function openRoomFormModal(existing, state, centreId, onDone) {
   const overlay = el("div", { class: "modal-overlay show", role: "dialog", "aria-modal": "true" });
   const nameInput = el("input", { class: "field-input", type: "text", value: existing?.name || "" });
   const codeInput = el("input", { class: "field-input", type: "text", value: existing?.code || "", style: "text-transform:uppercase;" });
+  const teacherInput = el("input", { class: "field-input", type: "text", value: existing?.defaultCustodian || "", placeholder: "e.g. Prachita Patil" });
 
   const modal = el("div", { class: "modal" }, [
     el("div", { class: "modal-header" }, [el("h2", {}, isEdit ? "Edit Room" : "Add Room"), el("button", { class: "btn-icon-only", "aria-label": "Close", onclick: () => overlay.remove() }, "×")]),
     el("div", { class: "modal-body" }, [
       el("div", { class: "field-group" }, [el("div", { class: "field-label" }, "Room Name"), nameInput]),
       el("div", { class: "field-group" }, [el("div", { class: "field-label" }, "Room Code (used in Asset IDs)"), codeInput]),
+      el("div", { class: "field-group" }, [el("div", { class: "field-label" }, "Assigned Teacher (optional)"), teacherInput]),
+      el("div", { style: "font-size:11.5px;color:var(--text-faint);" },
+        "New assets added to this room will have their Custodian pre-filled with this teacher's name automatically."
+        + (isEdit ? " Changing this also updates every existing asset currently in this room to this teacher — a one-time bulk reassignment, not a permanent link." : "")),
       isEdit ? el("div", { style: "font-size:11.5px;color:var(--text-faint);" },
-        "Changing the code only affects new Asset IDs from now on — existing assets in this room keep their current IDs until individually transferred.") : null
+        "Changing the Room Code only affects new Asset IDs from now on — existing assets in this room keep their current IDs until individually transferred.") : null
     ].filter(Boolean)),
     el("div", { class: "modal-footer" }, [
       el("button", { class: "btn btn-ghost", onclick: () => overlay.remove() }, "Cancel"),
       el("button", { class: "btn btn-primary", onclick: async (e) => {
         const name = nameInput.value.trim();
         const code = codeInput.value.trim().toUpperCase();
+        const defaultCustodian = teacherInput.value.trim();
         if (!name) { showToast("Room Name is required", "red"); return; }
         if (!code) { showToast("Room Code is required", "red"); return; }
+
+        const teacherChanged = isEdit && defaultCustodian !== (existing.defaultCustodian || "");
+        if (teacherChanged && defaultCustodian) {
+          const ok = window.confirm(
+            `This will reassign every existing asset currently in "${name}" to "${defaultCustodian}" as their Custodian. Continue?`
+          );
+          if (!ok) return;
+        }
+
         e.target.disabled = true;
         try {
           if (isEdit) {
-            await updateDoc(doc(db, "rooms", existing.id), { name, code });
+            await updateDoc(doc(db, "rooms", existing.id), { name, code, defaultCustodian });
+            if (teacherChanged && defaultCustodian) {
+              await reassignRoomAssetsToTeacher(existing.id, centreId, defaultCustodian, state);
+            }
           } else {
-            await addDoc(collection(db, "rooms"), { centreId, name, code });
+            await addDoc(collection(db, "rooms"), { centreId, name, code, defaultCustodian });
           }
           invalidateRoomsCache(centreId);
           showToast(isEdit ? "Room updated" : "Room added", "green");
@@ -167,6 +190,33 @@ function openRoomFormModal(existing, state, centreId, onDone) {
   ]);
   overlay.appendChild(modal);
   document.body.appendChild(overlay);
+}
+
+/**
+ * Retroactively assigns every non-disposed asset currently in a room to
+ * that room's newly-set default teacher — the "already created assets
+ * should get assigned too" half of the feature. Logs one custodian_changed
+ * activity per affected asset so it shows correctly in that asset's own
+ * Assignment History, same as a manual Change Custodian action would.
+ */
+async function reassignRoomAssetsToTeacher(roomId, centreId, teacherName, state) {
+  const snap = await getDocs(query(collection(db, "assets"), where("roomId", "==", roomId)));
+  const assets = snap.docs
+    .map((d) => ({ id: d.id, ...d.data() }))
+    .filter((a) => a.currentStatus !== "disposed" && a.currentCustodian !== teacherName);
+
+  for (const asset of assets) {
+    const oldCustodian = asset.currentCustodian || "—";
+    await updateDoc(doc(db, "assets", asset.id), {
+      currentCustodian: teacherName,
+      lastModifiedBy: state.profile.uid,
+      lastModifiedAt: serverTimestamp()
+    });
+    await logActivity(state, {
+      type: "custodian_changed", assetId: asset.id, centreId,
+      summary: `${asset.assetId}: Custodian: ${oldCustodian} → ${teacherName} (room's assigned teacher)`
+    });
+  }
 }
 
 function detailRow(label, value) {
