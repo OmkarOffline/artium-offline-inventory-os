@@ -13,6 +13,7 @@ import { el, showToast, renderEmptyState } from "./utils.js";
 import { renderDashboard } from "./dashboard.js";
 import { renderRegister } from "./register.js";
 import { renderVendorDirectory } from "./vendors.js";
+import { renderStaffDirectory } from "./staff.js";
 import { renderAuditsPage } from "./audits.js";
 import { renderDisposalRequestsPage } from "./disposal.js";
 import { mountNotificationBell } from "./notifications.js";
@@ -27,6 +28,7 @@ const NAV_ITEMS = [
   { id: "dashboard", label: "Dashboard", icon: iconHome() },
   { id: "register", label: "Register", icon: iconGrid() },
   { id: "vendors", label: "Vendor Directory", icon: iconTruck() },
+  { id: "staff", label: "Staff Directory", icon: iconIdBadge() },
   { id: "audits", label: "Audits", icon: iconCheckShield() },
   { id: "disposals", label: "Disposal Requests", icon: iconTrash() },
   { id: "reports", label: "Reports", icon: iconChart() },
@@ -237,6 +239,10 @@ function navigateTo(pageId, params = {}) {
     renderVendorDirectory(content, state);
     return;
   }
+  if (pageId === "staff") {
+    renderStaffDirectory(content, state);
+    return;
+  }
   if (pageId === "audits") {
     renderAuditsPage(content, state);
     return;
@@ -289,6 +295,7 @@ function iconTruck() { return svg('<rect x="1" y="7" width="13" height="9" rx="1
 function iconCheckShield() { return svg('<path d="M12 3l7 3v6c0 5-3.5 7.5-7 9-3.5-1.5-7-4-7-9V6z"/><path d="M9 12l2 2 4-4"/>'); }
 function iconChart() { return svg('<path d="M4 20V10"/><path d="M12 20V4"/><path d="M20 20v-7"/>'); }
 function iconUsers() { return svg('<circle cx="9" cy="8" r="3.2"/><path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6"/><circle cx="17.5" cy="8.5" r="2.6"/><path d="M15.5 14.2c2.9.4 5 2.6 5 5.8"/>'); }
+function iconIdBadge() { return svg('<rect x="4" y="3" width="16" height="18" rx="2"/><circle cx="12" cy="11" r="2.6"/><path d="M8 17.5c.6-2 2-3 4-3s3.4 1 4 3"/><path d="M9 3v2"/><path d="M15 3v2"/>'); }
 function iconSettings() { return svg('<circle cx="12" cy="12" r="3"/><path d="M19.4 13a7.6 7.6 0 0 0 0-2l2-1.5-2-3.4-2.4 1a7.6 7.6 0 0 0-1.7-1L15 3h-4l-.3 2.6a7.6 7.6 0 0 0-1.7 1l-2.4-1-2 3.4L6.6 11a7.6 7.6 0 0 0 0 2l-2 1.5 2 3.4 2.4-1a7.6 7.6 0 0 0 1.7 1L11 21h4l.3-2.6a7.6 7.6 0 0 0 1.7-1l2.4 1 2-3.4z"/>'); }
 function iconSearch() { return svg('<circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/>'); }
 function iconTrash() { return svg('<path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="M6 7l1 13h10l1-13"/>'); }

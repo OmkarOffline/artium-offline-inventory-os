@@ -15,6 +15,7 @@ import { el, showToast } from "./utils.js";
 import { downloadJSON } from "./csv.js";
 import { invalidateRoomsCache } from "./refcache.js";
 import { logActivity } from "./activity.js";
+import { listStaff, listActiveStaff, courseCodesLabel } from "./staff.js";
 
 const BACKUP_COLLECTIONS = [
   "centres", "rooms", "assetTypes", "assetMasters", "vendors", "assets",
@@ -99,8 +100,12 @@ async function renderRoomsCard(card, state) {
 
   async function loadRooms() {
     listWrap.innerHTML = "<div style=\"font-size:12px;color:var(--text-faint);padding:8px 0;\">Loading…</div>";
-    const snap = await getDocs(query(collection(db, "rooms"), where("centreId", "==", centreSelect.value)));
+    const [snap, staff] = await Promise.all([
+      getDocs(query(collection(db, "rooms"), where("centreId", "==", centreSelect.value))),
+      listStaff(centreSelect.value)
+    ]);
     const rooms = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    const staffByName = Object.fromEntries(staff.map((s) => [s.name, s]));
     listWrap.innerHTML = "";
     if (!rooms.length) {
       listWrap.appendChild(el("div", { style: "font-size:12px;color:var(--text-faint);padding:8px 0;" },
@@ -108,6 +113,8 @@ async function renderRoomsCard(card, state) {
       return;
     }
     rooms.forEach((r) => {
+      const teacher = r.defaultCustodian ? staffByName[r.defaultCustodian] : null;
+      const courseBadge = teacher?.designation === "Teacher" ? courseCodesLabel(teacher.courses) : "";
       listWrap.appendChild(el("div", {
         style: "display:flex;justify-content:space-between;align-items:center;background:var(--bg-input);border-radius:var(--radius-sm);padding:8px 12px;margin-bottom:6px;"
       }, [
@@ -117,7 +124,7 @@ async function renderRoomsCard(card, state) {
             el("span", { style: "font-size:11px;color:var(--text-faint);margin-left:8px;" }, r.code)
           ]),
           el("div", { style: "font-size:11px;color:var(--text-faint);margin-top:2px;" },
-            r.defaultCustodian ? `Assigned teacher: ${r.defaultCustodian}` : "No teacher assigned")
+            r.defaultCustodian ? `Assigned teacher: ${r.defaultCustodian}${courseBadge ? ` (${courseBadge})` : ""}` : "No teacher assigned")
         ]),
         el("button", { class: "btn btn-ghost btn-sm", onclick: () => openRoomFormModal(r, state, centreSelect.value, loadRooms) }, "Edit")
       ]));
@@ -130,19 +137,37 @@ async function renderRoomsCard(card, state) {
   await loadRooms();
 }
 
-function openRoomFormModal(existing, state, centreId, onDone) {
+async function openRoomFormModal(existing, state, centreId, onDone) {
   const isEdit = !!existing;
   const overlay = el("div", { class: "modal-overlay show", role: "dialog", "aria-modal": "true" });
   const nameInput = el("input", { class: "field-input", type: "text", value: existing?.name || "" });
   const codeInput = el("input", { class: "field-input", type: "text", value: existing?.code || "", style: "text-transform:uppercase;" });
-  const teacherInput = el("input", { class: "field-input", type: "text", value: existing?.defaultCustodian || "", placeholder: "e.g. Prachita Patil" });
+
+  const activeStaff = await listActiveStaff(centreId);
+  const currentName = existing?.defaultCustodian || "";
+  // A previously-assigned teacher who's since gone inactive (or been
+  // renamed) shouldn't silently vanish from the dropdown and get wiped out
+  // the next time this room is saved — keep them selectable, just flagged.
+  const staffNames = new Set(activeStaff.map((s) => s.name));
+  const teacherSelect = el("select", { class: "field-input" }, [
+    new Option("No teacher assigned", ""),
+    ...activeStaff.map((s) => {
+      const courseBadge = s.designation === "Teacher" ? courseCodesLabel(s.courses) : "";
+      const label = `${s.name} — ${s.designation}${courseBadge ? ` (${courseBadge})` : ""}`;
+      return new Option(label, s.name);
+    }),
+    (currentName && !staffNames.has(currentName)) ? new Option(`${currentName} (not active staff)`, currentName) : null
+  ].filter(Boolean));
+  teacherSelect.value = currentName;
 
   const modal = el("div", { class: "modal" }, [
     el("div", { class: "modal-header" }, [el("h2", {}, isEdit ? "Edit Room" : "Add Room"), el("button", { class: "btn-icon-only", "aria-label": "Close", onclick: () => overlay.remove() }, "×")]),
     el("div", { class: "modal-body" }, [
       el("div", { class: "field-group" }, [el("div", { class: "field-label" }, "Room Name"), nameInput]),
       el("div", { class: "field-group" }, [el("div", { class: "field-label" }, "Room Code (used in Asset IDs)"), codeInput]),
-      el("div", { class: "field-group" }, [el("div", { class: "field-label" }, "Assigned Teacher (optional)"), teacherInput]),
+      el("div", { class: "field-group" }, [el("div", { class: "field-label" }, "Assigned Teacher (optional)"), teacherSelect]),
+      activeStaff.length ? null : el("div", { style: "font-size:11.5px;color:var(--text-faint);" },
+        "No active staff found for this centre yet — add them in Staff Directory first, then come back here to assign one."),
       el("div", { style: "font-size:11.5px;color:var(--text-faint);" },
         "New assets added to this room will have their Custodian pre-filled with this teacher's name automatically."
         + (isEdit ? " Changing this also updates every existing asset currently in this room to this teacher — a one-time bulk reassignment, not a permanent link." : "")),
@@ -154,7 +179,7 @@ function openRoomFormModal(existing, state, centreId, onDone) {
       el("button", { class: "btn btn-primary", onclick: async (e) => {
         const name = nameInput.value.trim();
         const code = codeInput.value.trim().toUpperCase();
-        const defaultCustodian = teacherInput.value.trim();
+        const defaultCustodian = teacherSelect.value;
         if (!name) { showToast("Room Name is required", "red"); return; }
         if (!code) { showToast("Room Code is required", "red"); return; }
 

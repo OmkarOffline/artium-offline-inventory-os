@@ -159,6 +159,20 @@ service cloud.firestore {
     }
 
     // -------------------------------------------------------------------
+    // /staff — per-centre teacher/staff directory. Centre-isolated for
+    // Centre Admins, same pattern as /assets: they can manage staff for
+    // their own assigned centre(s) only. Never hard-deleted — status
+    // (active/inactive) is the deactivation mechanism, matching how
+    // Vendors and Users are handled elsewhere.
+    // -------------------------------------------------------------------
+    match /staff/{staffId} {
+      allow read: if isActiveUser();
+      allow create: if canWriteInCentre(request.resource.data.centreId);
+      allow update: if isOwner() || (isCentreAdmin() && assignedToCentre(resource.data.centreId));
+      allow delete: if false;
+    }
+
+    // -------------------------------------------------------------------
     // /assets — the central entity. Centre-isolated for Centre Admins.
     // Never hard-deleted, ever — disposal is a workflow, not a delete
     // (Chapter 3/4/5). This rule enforces that at the database layer.
