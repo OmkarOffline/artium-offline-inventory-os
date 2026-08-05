@@ -12,6 +12,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { el, formatCurrency, formatDate, renderEmptyState, showToast } from "./utils.js";
 import { invalidateVendorsCache } from "./refcache.js";
+import { BACK_ICON } from "./icons.js";
 
 export const VENDOR_TYPES = ["E-commerce Platform", "Distributor", "Retailer", "D2C Brand"];
 
@@ -187,6 +188,9 @@ export async function openVendorProfile(vendor, state, onChanged) {
   const overlay = el("div", { class: "overlay show", role: "dialog", "aria-modal": "true" });
   const panel = el("div", { class: "panel show" });
   panel.appendChild(el("div", { class: "panel-header" }, [
+    el("button", { class: "btn-icon-only", "aria-label": "Back", title: "Back", style: "margin-bottom:6px;", onclick: () => close() }, [
+      el("img", { src: BACK_ICON, alt: "", class: "icon-img", loading: "lazy" })
+    ]),
     el("div", { class: "panel-crumb" }, "Vendor Directory"),
     el("div", { style: "font-size:19px;font-weight:700;" }, vendor.companyName)
   ]));

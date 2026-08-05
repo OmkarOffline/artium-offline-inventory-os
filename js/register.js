@@ -8,7 +8,7 @@
 
 import { db } from "./firebase.js";
 import { collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { el, formatDate, formatCurrency, statusBadge, renderEmptyState, debounce } from "./utils.js";
+import { el, formatDate, formatCurrency, statusBadge, renderEmptyState, debounce, roomDisplayName } from "./utils.js";
 import { openAddAssetModal } from "./addAsset.js";
 import { openAssetProfile } from "./assetProfile.js";
 import { downloadCSV } from "./csv.js";
@@ -88,7 +88,7 @@ export async function renderRegister(container, state) {
     filterChipRow.innerHTML = "";
     if (!state.registerRoomFilter) return;
     filterChipRow.appendChild(el("div", { class: "filter-chip" }, [
-      `Room: ${state.registerRoomFilter.name}`,
+      `Room: ${roomDisplayName(state.registerRoomFilter.name)}`,
       el("span", {
         class: "chip-remove", role: "button", tabindex: "0", "aria-label": "Remove room filter",
         onclick: () => {
@@ -123,7 +123,7 @@ export async function renderRegister(container, state) {
       getVendors()
     ]);
 
-    const roomNames = Object.fromEntries(rooms.map((r) => [r.id, r.name]));
+    const roomNames = Object.fromEntries(rooms.map((r) => [r.id, roomDisplayName(r.name)]));
     const vendorNames = Object.fromEntries(vendors.map((v) => [v.id, v.companyName]));
 
     let assets = assetsSnap.docs.map((d) => {

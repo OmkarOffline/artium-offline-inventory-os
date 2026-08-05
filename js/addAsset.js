@@ -11,7 +11,7 @@ import {
   collection, doc, addDoc, getDoc, getDocs, query, where,
   runTransaction, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { el, showToast } from "./utils.js";
+import { el, showToast, roomDisplayName } from "./utils.js";
 import { listAssetMasters, listAssetTypes, createAssetType, createAssetMaster, updateAssetMaster, ASSET_CATEGORIES } from "./assetMaster.js";
 import { listVendors, openVendorModal } from "./vendors.js";
 import { logActivity } from "./activity.js";
@@ -163,7 +163,7 @@ export function openAddAssetModal(state, onSaved) {
       roomSelect.appendChild(new Option("No rooms configured for this centre", ""));
       return;
     }
-    rooms.forEach((r) => roomSelect.appendChild(new Option(r.name, r.id)));
+    rooms.forEach((r) => roomSelect.appendChild(new Option(roomDisplayName(r.name), r.id)));
     applyRoomDefaultCustodian();
   }
 

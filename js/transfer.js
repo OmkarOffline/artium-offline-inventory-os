@@ -13,7 +13,7 @@ import { db } from "./firebase.js";
 import {
   doc, getDoc, updateDoc, collection, query, where, getDocs, arrayUnion, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { el, showToast } from "./utils.js";
+import { el, showToast, roomDisplayName } from "./utils.js";
 import { logActivity } from "./activity.js";
 import { nextSequence, buildAssetId } from "./addAsset.js";
 import { listAssetTypes } from "./assetMaster.js";
@@ -30,7 +30,7 @@ export async function openRoomTransferModal(asset, state, onDone) {
   if (!rooms.length) { showToast("No other rooms in this centre to transfer to.", "amber"); return; }
 
   const overlay = el("div", { class: "modal-overlay show", role: "dialog", "aria-modal": "true" });
-  const select = el("select", { class: "field-input" }, rooms.map((r) => new Option(r.name, r.id)));
+  const select = el("select", { class: "field-input" }, rooms.map((r) => new Option(roomDisplayName(r.name), r.id)));
   const modal = el("div", { class: "modal" }, [
     el("div", { class: "modal-header" }, [el("h2", {}, "Transfer Room"), el("button", { class: "btn-icon-only", "aria-label": "Close", onclick: () => overlay.remove() }, "×")]),
     el("div", { class: "modal-body" }, [
@@ -171,7 +171,7 @@ export async function openCentreTransferModal(asset, state, onDone) {
     const roomSelect = document.getElementById("ct_room");
     roomSelect.innerHTML = "";
     if (!destRooms.length) { roomSelect.appendChild(new Option("No rooms configured there", "")); return; }
-    destRooms.forEach((r) => roomSelect.appendChild(new Option(r.name, r.id)));
+    destRooms.forEach((r) => roomSelect.appendChild(new Option(roomDisplayName(r.name), r.id)));
   }
   centreSelect.addEventListener("change", loadRooms);
   await loadRooms();

@@ -11,7 +11,7 @@
 
 import { db } from "./firebase.js";
 import { collection, addDoc, updateDoc, doc, getDocs, query, where, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { el, showToast } from "./utils.js";
+import { el, showToast, roomDisplayName } from "./utils.js";
 import { downloadJSON } from "./csv.js";
 import { invalidateRoomsCache } from "./refcache.js";
 import { logActivity } from "./activity.js";
@@ -120,7 +120,7 @@ async function renderRoomsCard(card, state) {
       }, [
         el("div", {}, [
           el("div", {}, [
-            el("span", { style: "font-size:12.5px;font-weight:600;color:var(--text);" }, r.name),
+            el("span", { style: "font-size:12.5px;font-weight:600;color:var(--text);" }, roomDisplayName(r.name)),
             el("span", { style: "font-size:11px;color:var(--text-faint);margin-left:8px;" }, r.code)
           ]),
           el("div", { style: "font-size:11px;color:var(--text-faint);margin-top:2px;" },

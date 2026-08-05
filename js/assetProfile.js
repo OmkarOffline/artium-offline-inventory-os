@@ -9,14 +9,14 @@
 
 import { db } from "./firebase.js";
 import { doc, getDoc, updateDoc, collection, query, where, orderBy, getDocs, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { el, formatDate, formatDateTime, formatCurrency, statusBadge, showToast } from "./utils.js";
+import { el, formatDate, formatDateTime, formatCurrency, statusBadge, showToast, roomDisplayName } from "./utils.js";
 import { logActivity } from "./activity.js";
 import { openRoomTransferModal, openCentreTransferModal, openCorrectAssetTypeModal } from "./transfer.js";
 import { listRepairsForAsset, openSendForRepairModal, openReturnFromRepairModal, repairStatusLabel } from "./repairs.js";
 import { listVendors } from "./vendors.js";
 import { openDisposalRequestModal } from "./disposal.js";
 import { listAuditFlagsForAsset } from "./audits.js";
-import { categoryIconFor } from "./icons.js";
+import { categoryIconFor, BACK_ICON } from "./icons.js";
 
 export async function openAssetProfile(assetId, state, onChanged) {
   const overlay = el("div", { class: "overlay show", role: "dialog", "aria-modal": "true" });
@@ -70,7 +70,7 @@ export async function openAssetProfile(assetId, state, onChanged) {
       listRepairsForAsset(asset.id).catch((err) => { console.error("[assetProfile] Failed to load repairs:", err); return null; }),
       listAuditFlagsForAsset(asset.id).catch((err) => { console.error("[assetProfile] Failed to load audit flags:", err); return null; })
     ]);
-    roomName = roomSnap?.exists() ? roomSnap.data().name : "—";
+    roomName = roomSnap?.exists() ? roomDisplayName(roomSnap.data().name) : "—";
     vendorName = vendorSnap?.exists() ? vendorSnap.data().companyName : "—";
     masterImage = masterSnap?.exists() ? masterSnap.data().driveImageLink : "";
     vendorsById = Object.fromEntries(vendorList.map((v) => [v.id, v.companyName]));
@@ -97,6 +97,9 @@ export async function openAssetProfile(assetId, state, onChanged) {
     const categoryIcon = categoryIconFor(asset.category);
 
     panel.appendChild(el("div", { class: "panel-header" }, [
+      el("button", { class: "btn-icon-only", "aria-label": "Back", title: "Back", style: "margin-bottom:6px;", onclick: close }, [
+        el("img", { src: BACK_ICON, alt: "", class: "icon-img", loading: "lazy" })
+      ]),
       el("div", { class: "panel-crumb" }, "Register  ›  " + roomName),
       el("div", { style: "display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-top:6px;" }, [
         el("div", { style: "display:flex;align-items:center;gap:12px;min-width:0;" }, [

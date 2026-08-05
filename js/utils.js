@@ -27,6 +27,19 @@ export function formatCurrency(value) {
   return new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(value);
 }
 
+/**
+ * Strips a trailing "Classroom" from a room name for display only — the
+ * course name already makes it self-evident (e.g. "Western Vocals" instead
+ * of "Western Vocals Classroom"). Never touches the stored name itself, so
+ * data/search/exports are unaffected — purely a render-time trim, used
+ * everywhere a room name is shown to a person.
+ */
+export function roomDisplayName(name) {
+  if (!name) return name;
+  const trimmed = name.replace(/\s+classroom\s*$/i, "").trim();
+  return trimmed || name;
+}
+
 /** Small DOM creation helper to avoid repetitive document.createElement chains. */
 export function el(tag, attrs = {}, children = []) {
   const node = document.createElement(tag);

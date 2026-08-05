@@ -13,7 +13,7 @@ import { db } from "./firebase.js";
 import {
   collection, doc, addDoc, updateDoc, getDocs, query, where, orderBy, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { el, showToast, formatDateTime, renderEmptyState } from "./utils.js";
+import { el, showToast, formatDateTime, renderEmptyState, roomDisplayName } from "./utils.js";
 import { logActivity } from "./activity.js";
 
 export async function listAudits(centreId) {
@@ -74,7 +74,7 @@ export function openStartAuditModal(state, onDone) {
     rooms = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
     roomSelect.innerHTML = "";
     if (!rooms.length) { roomSelect.appendChild(new Option("No rooms configured", "")); return; }
-    rooms.forEach((r) => roomSelect.appendChild(new Option(r.name, r.id)));
+    rooms.forEach((r) => roomSelect.appendChild(new Option(roomDisplayName(r.name), r.id)));
     await loadChecklist();
   }
 
@@ -136,7 +136,7 @@ export function openStartAuditModal(state, onDone) {
       const auditRef = await addDoc(collection(db, "audits"), {
         centreId: state.activeCentreId,
         roomId: room.id,
-        roomName: room.name,
+        roomName: roomDisplayName(room.name),
         conductedBy: state.profile.uid,
         conductedByName: state.profile.displayName || state.profile.email,
         status: "completed",
@@ -154,7 +154,7 @@ export function openStartAuditModal(state, onDone) {
           assetIdLabel: item.assetIdLabel,
           assetName: item.assetName,
           roomId: room.id,
-          roomName: room.name,
+          roomName: roomDisplayName(room.name),
           centreId: state.activeCentreId,
           status: item.status,
           notes: item.notes,

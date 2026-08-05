@@ -8,7 +8,7 @@
 
 import { db } from "./firebase.js";
 import { collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { el, formatDate, formatCurrency, statusBadge, renderEmptyState } from "./utils.js";
+import { el, formatDate, formatCurrency, statusBadge, renderEmptyState, roomDisplayName } from "./utils.js";
 import { downloadCSV } from "./csv.js";
 import { getRoomsForCentre, getVendors } from "./refcache.js";
 
@@ -39,7 +39,7 @@ export async function renderReportsPage(container, state) {
   loadingNote.remove();
 
   const assets = assetsSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
-  const roomNames = Object.fromEntries(rooms.map((r) => [r.id, r.name]));
+  const roomNames = Object.fromEntries(rooms.map((r) => [r.id, roomDisplayName(r.name)]));
   const vendorNames = Object.fromEntries(vendors.map((v) => [v.id, v.companyName]));
   const repairs = repairsSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
   const disposals = disposalsSnap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((r) => r.status !== "pending");

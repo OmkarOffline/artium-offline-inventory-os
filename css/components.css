@@ -64,6 +64,12 @@
 .room-card-name{font-size:14px;font-weight:700;color:var(--text);}
 .room-card-count{font-size:11.5px;color:var(--text-faint);font-weight:600;}
 
+/* Dashboard room cards specifically: three equal-weight lines (Room name,
+   Assigned Teacher, Asset count) rather than one bold heading + one faint
+   caption — none of the three should visually outrank the others. */
+.room-card-lines{display:flex;flex-direction:column;gap:3px;}
+.room-card-line{font-size:13px;font-weight:600;color:var(--text-dim);}
+
 /* ---------- Stat Cards ---------- */
 .stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;}
 .stat-card{

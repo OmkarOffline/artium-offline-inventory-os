@@ -15,6 +15,12 @@ function iconUrl(filename) {
 
 export const NOTIFICATIONS_ICON = iconUrl("Notifications.png");
 export const SIGNOUT_ICON = iconUrl("Sign-out.png");
+export const BACK_ICON = iconUrl("Back.png");
+export const HOME_ICON = iconUrl("Home.png");
+export const ADD_ICON = iconUrl("Add.png");
+export const EDIT_ICON = iconUrl("Edit.png");
+export const DELETE_ICON = iconUrl("Delete.png");
+export const SEARCH_ICON = iconUrl("Search.png");
 
 // Matched by substring against the room's actual name, case-insensitively —
 // robust to whatever exact wording a centre's real room list uses, rather

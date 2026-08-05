@@ -8,7 +8,7 @@
 
 import { db } from "./firebase.js";
 import { collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { el, renderEmptyState, formatDateTime } from "./utils.js";
+import { el, renderEmptyState, formatDateTime, roomDisplayName } from "./utils.js";
 import { listRecentActivity } from "./activity.js";
 import { roomIconFor } from "./icons.js";
 import { getRoomsForCentre } from "./refcache.js";
@@ -99,20 +99,24 @@ async function renderRoomCards(container, state, assets) {
   rooms.forEach((room) => {
     const count = countByRoom[room.id] || 0;
     const iconUrl = roomIconFor(room.name);
+    const displayName = roomDisplayName(room.name) || "Untitled Room";
     container.appendChild(
       el("div", {
         class: "room-card",
         tabindex: "0",
         role: "button",
-        "aria-label": `Open ${room.name || "room"} in Register`,
+        "aria-label": `Open ${displayName} in Register`,
         onclick: () => state.navigateTo("register", { roomId: room.id, roomName: room.name }),
         onkeydown: (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); state.navigateTo("register", { roomId: room.id, roomName: room.name }); } }
       }, [
         el("div", { class: "room-card-icon" }, iconUrl
           ? [el("img", { src: iconUrl, alt: "", loading: "lazy" })]
           : "▢"),
-        el("div", { class: "room-card-name" }, room.name || "Untitled Room"),
-        el("div", { class: "room-card-count" }, `${count} active asset${count === 1 ? "" : "s"}`)
+        el("div", { class: "room-card-lines" }, [
+          el("div", { class: "room-card-line" }, displayName),
+          el("div", { class: "room-card-line" }, room.defaultCustodian || "Teacher Unassigned"),
+          el("div", { class: "room-card-line" }, `${count} active asset${count === 1 ? "" : "s"}`)
+        ])
       ])
     );
   });

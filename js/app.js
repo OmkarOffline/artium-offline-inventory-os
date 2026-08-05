@@ -22,7 +22,7 @@ import { renderReportsPage } from "./reports.js";
 import { renderSettingsPage } from "./settings.js";
 import { renderUsersPage } from "./users.js";
 import { getLastActiveCentreId, saveLastActiveCentreId } from "./workspace.js";
-import { SIGNOUT_ICON } from "./icons.js";
+import { SIGNOUT_ICON, HOME_ICON } from "./icons.js";
 
 const NAV_ITEMS = [
   { id: "dashboard", label: "Dashboard", icon: iconHome() },
@@ -119,6 +119,10 @@ function renderShell() {
 
   const main = el("div", { class: "main" }, [
     el("div", { class: "topbar" }, [
+      el("button", {
+        class: "btn-icon-only", id: "homeBtn", "aria-label": "Back to Dashboard", title: "Back to Dashboard",
+        style: "display:none;"
+      }, [el("img", { src: HOME_ICON, alt: "", class: "icon-img", loading: "lazy" })]),
       el("div", { class: "topbar-title" }, [
         el("h1", { id: "pageTitle" }, "Dashboard"),
         el("div", { class: "meta", id: "pageMeta" }, "")
@@ -149,6 +153,7 @@ function renderShell() {
   mountGlobalSearch(state);
 
   document.getElementById("collapseBtn").addEventListener("click", toggleSidebar);
+  document.getElementById("homeBtn").addEventListener("click", () => navigateTo("dashboard"));
   document.getElementById("signOutBtn").addEventListener("click", async () => {
     await signOutUser();
     window.location.href = "login.html";
@@ -218,6 +223,7 @@ function navigateTo(pageId, params = {}) {
   const item = NAV_ITEMS.find((n) => n.id === pageId);
   document.getElementById("pageTitle").textContent = item ? item.label : "Dashboard";
   document.getElementById("pageMeta").textContent = roleLabel(state.profile.role);
+  document.getElementById("homeBtn").style.display = pageId === "dashboard" ? "none" : "flex";
 
   const content = document.getElementById("content");
   content.innerHTML = "";
