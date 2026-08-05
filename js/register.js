@@ -288,6 +288,11 @@ function buildTypeGrid(assets, typeNames, onSelect) {
     groups[code].items.push(a);
   });
 
+  // Same markup and CSS classes as the Dashboard's room cards (.room-card,
+  // .room-card-icon, .room-card-lines / -line-name / -line-teacher /
+  // -line-count) so the two look identical by construction rather than by
+  // two separately-maintained styles drifting apart. .type-card only trims
+  // the icon and name a notch smaller — see components.css.
   const tiles = Object.values(groups)
     .sort((a, b) => a.name.localeCompare(b.name))
     .map((g) => {
@@ -295,36 +300,24 @@ function buildTypeGrid(assets, typeNames, onSelect) {
       const assigned = g.items.filter((a) => a.currentCustodian).length;
       const inStock = total - assigned;
       const iconUrl = assetTypeIconFor(g.name);
-      const visual = iconUrl
-        ? el("div", { style: "width:52px;height:52px;border-radius:var(--radius-sm);background:var(--bg-input);border:1px solid var(--border-soft);overflow:hidden;flex:none;display:flex;align-items:center;justify-content:center;" }, [
-            el("img", { src: iconUrl, alt: "", style: "width:100%;height:100%;object-fit:cover;", loading: "lazy" })
-          ])
-        : el("div", {
-            style: "width:52px;height:52px;border-radius:50%;background:var(--accent-soft);color:var(--accent);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;letter-spacing:-.02em;flex:none;"
-          }, g.code);
       return el("div", {
-        style: "background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;cursor:pointer;transition:box-shadow .15s ease, transform .1s ease;display:flex;flex-direction:column;gap:12px;",
-        role: "button", tabindex: "0", "aria-label": `View ${g.name}`,
+        class: "room-card type-card",
+        tabindex: "0", role: "button", "aria-label": `View ${g.name}`,
         onclick: () => onSelect(g),
-        onkeydown: (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onSelect(g); } },
-        onmouseenter: (e) => { e.currentTarget.style.boxShadow = "var(--emboss-hover)"; e.currentTarget.style.transform = "translateY(-1px)"; },
-        onmouseleave: (e) => { e.currentTarget.style.boxShadow = "none"; e.currentTarget.style.transform = "translateY(0)"; }
+        onkeydown: (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onSelect(g); } }
       }, [
-        el("div", { style: "display:flex;align-items:center;gap:10px;" }, [
-          visual,
-          el("div", { style: "min-width:0;" }, [
-            el("div", { style: "font-size:13px;font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" }, g.name),
-            el("div", { style: "font-size:11px;color:var(--text-faint);" }, `${total} asset${total === 1 ? "" : "s"}`)
-          ])
-        ]),
-        el("div", { style: "display:flex;gap:10px;font-size:11px;padding-top:8px;border-top:1px solid var(--border-soft);" }, [
-          el("span", { style: "color:var(--green);font-weight:700;" }, `${assigned} assigned`),
-          el("span", { style: "color:var(--blue);font-weight:700;" }, `${inStock} in stock`)
+        el("div", { class: "room-card-icon" }, iconUrl
+          ? [el("img", { src: iconUrl, alt: "", loading: "lazy" })]
+          : g.code),
+        el("div", { class: "room-card-lines" }, [
+          el("div", { class: "room-card-line room-card-line-name" }, g.name),
+          el("div", { class: "room-card-line room-card-line-teacher" }, `${assigned} assigned · ${inStock} in stock`),
+          el("div", { class: "room-card-line room-card-line-count" }, `${total} asset${total === 1 ? "" : "s"}`)
         ])
       ]);
     });
 
-  return el("div", { style: "display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;" }, tiles);
+  return el("div", { class: "card-grid" }, tiles);
 }
 
 function buildTable(assets, state, reload) {
