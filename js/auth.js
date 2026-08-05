@@ -14,6 +14,7 @@ import {
   doc,
   getDoc,
   setDoc,
+  deleteDoc,
   serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { auth, db, googleProvider, ALLOWED_DOMAIN } from "./firebase.js";
@@ -84,6 +85,34 @@ export async function resolveUserProfile(firebaseUser) {
       workspacePreferences: {}
     };
     await setDoc(userRef, profile);
+    return { uid: firebaseUser.uid, ...profile };
+  }
+
+  // Pre-provisioned by an Owner via Users → Invite User (/invites/{email},
+  // created ahead of time with a role already picked). If one exists for
+  // this email, skip the disabled "pending approval" limbo entirely and
+  // activate them immediately with the role the Owner already chose — this
+  // is what makes an invite actually mean something rather than just being
+  // a note to self for the Owner.
+  const inviteRef = doc(db, "invites", email);
+  const inviteSnap = await getDoc(inviteRef);
+  if (inviteSnap.exists()) {
+    const invite = inviteSnap.data();
+    const profile = {
+      email,
+      displayName: firebaseUser.displayName || email,
+      role: invite.role,
+      assignedCentres: invite.assignedCentres || [],
+      disabled: false,
+      pendingApproval: false,
+      createdAt: serverTimestamp(),
+      workspacePreferences: {}
+    };
+    await setDoc(userRef, profile);
+    // Consumed — clean it up so it doesn't linger in the Users page's
+    // "Invited" list looking unresolved. Non-fatal if this fails; the
+    // invite is harmless once the /users doc already exists.
+    await deleteDoc(inviteRef).catch((err) => console.warn("[auth] Couldn't clean up consumed invite:", err));
     return { uid: firebaseUser.uid, ...profile };
   }
 

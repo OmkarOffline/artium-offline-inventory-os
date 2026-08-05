@@ -102,7 +102,18 @@ service cloud.firestore {
          request.resource.data.role == 'viewer' &&
          request.resource.data.disabled == true &&
          request.resource.data.pendingApproval == true &&
-         request.resource.data.assignedCentres.size() == 0);
+         request.resource.data.assignedCentres.size() == 0) ||
+        // Pre-invited via /invites/{email} (Users → Invite User): the new
+        // account may self-create as ACTIVE, but only with exactly the
+        // role and centres an Owner already set on the invite — never
+        // anything the signing-in user chooses themselves.
+        (isArtiumAccount() &&
+         request.auth.uid == userId &&
+         exists(/databases/$(database)/documents/invites/$(request.auth.token.email.lower())) &&
+         request.resource.data.role == get(/databases/$(database)/documents/invites/$(request.auth.token.email.lower())).data.role &&
+         request.resource.data.assignedCentres == get(/databases/$(database)/documents/invites/$(request.auth.token.email.lower())).data.assignedCentres &&
+         request.resource.data.disabled == false &&
+         request.resource.data.pendingApproval == false);
 
       // Owners can edit anyone (role, assignedCentres, disabled). Users may
       // only ever touch their own workspacePreferences field on their own
@@ -113,6 +124,26 @@ service cloud.firestore {
            .hasOnly(['workspacePreferences']));
 
       allow delete: if false; // Users are disabled, never deleted — preserves attribution on history.
+    }
+
+    // -------------------------------------------------------------------
+    // /invites — pre-provisioned email + role, created by an Owner via
+    // Users → Invite User, before the invitee has ever signed in (their
+    // eventual /users/{uid} doc can't exist yet — its ID is a Firebase Auth
+    // UID nobody knows ahead of time). Doc ID is the invited email,
+    // lowercased. Only an Owner can list/create/update/cancel invites. The
+    // one narrow exception: a freshly-signed-in account may `get` (never
+    // `list`) the single invite doc matching its own verified email, which
+    // is what lets self-bootstrap in /users above check "was I invited?"
+    // and auto-activate instead of landing in the pending queue. That same
+    // account may also delete its own invite once consumed, so it doesn't
+    // linger in the Owner's "Invited" list looking unresolved.
+    // -------------------------------------------------------------------
+    match /invites/{email} {
+      allow get: if isOwner() || (isArtiumAccount() && request.auth.token.email.lower() == email);
+      allow list: if isOwner();
+      allow create, update: if isOwner();
+      allow delete: if isOwner() || (isArtiumAccount() && request.auth.token.email.lower() == email);
     }
 
     // -------------------------------------------------------------------

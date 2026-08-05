@@ -58,3 +58,33 @@ export function categoryIconFor(category) {
   const rule = CATEGORY_ICON_RULES.find((r) => r.test.test(category));
   return rule ? iconUrl(rule.file) : null;
 }
+
+// Matched by substring against the Asset Type's name (never its code — the
+// code is just a short ID, the name is the human-readable "Microphone",
+// "Bluetooth Speaker" etc. these were actually drawn for). Order matters:
+// more specific multi-word rules (the two mic stands, guitar stand) must be
+// checked before their broader single-word cousins ("microphone", "guitar")
+// or every stand would just render as a plain mic/guitar.
+const ASSET_TYPE_ICON_RULES = [
+  { test: /upright.*mic|mic.*upright/i, file: "upright-microphone-stand.png" },
+  { test: /floor.*mic|mic.*floor/i, file: "floor-microphone-stand.png" },
+  { test: /guitar.*stand|stand.*guitar/i, file: "guitar-stand.png" },
+  { test: /notation/i, file: "notation-stand.png" },
+  { test: /bluetooth|speaker/i, file: "bluetooth-speaker.png" },
+  { test: /tanpura/i, file: "electronic-tanpura.png" },
+  { test: /tablet/i, file: "android-tablet.png" },
+  { test: /capo/i, file: "capo.png" },
+  { test: /guitar/i, file: "guitar.png" },
+  { test: /keyboard/i, file: "keyboard.png" },
+  { test: /laptop/i, file: "laptop.png" },
+  { test: /microphone|\bmic\b/i, file: "microphone.png" },
+  { test: /smartphone|\bphone\b/i, file: "smartphone.png" },
+  { test: /television|\btv\b/i, file: "television.png" }
+];
+
+/** Returns an icon URL for an Asset Type's name, or null if nothing matches (caller falls back to a plain code badge). */
+export function assetTypeIconFor(typeName) {
+  if (!typeName) return null;
+  const rule = ASSET_TYPE_ICON_RULES.find((r) => r.test.test(typeName));
+  return rule ? iconUrl(`asset-types/${rule.file}`) : null;
+}

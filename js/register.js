@@ -16,6 +16,7 @@ import { downloadCSV } from "./csv.js";
 import { getRegisterPrefs, saveRegisterPrefs, listSavedViews, saveView, deleteView } from "./workspace.js";
 import { getRoomsForCentre, getVendors } from "./refcache.js";
 import { listAssetTypes } from "./assetMaster.js";
+import { assetTypeIconFor } from "./icons.js";
 
 const COLUMNS = [
   { key: "assetId", label: "Asset ID", locked: true },
@@ -293,6 +294,14 @@ function buildTypeGrid(assets, typeNames, onSelect) {
       const total = g.items.length;
       const assigned = g.items.filter((a) => a.currentCustodian).length;
       const inStock = total - assigned;
+      const iconUrl = assetTypeIconFor(g.name);
+      const visual = iconUrl
+        ? el("div", { style: "width:52px;height:52px;border-radius:var(--radius-sm);background:var(--bg-input);border:1px solid var(--border-soft);overflow:hidden;flex:none;display:flex;align-items:center;justify-content:center;" }, [
+            el("img", { src: iconUrl, alt: "", style: "width:100%;height:100%;object-fit:cover;", loading: "lazy" })
+          ])
+        : el("div", {
+            style: "width:52px;height:52px;border-radius:50%;background:var(--accent-soft);color:var(--accent);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;letter-spacing:-.02em;flex:none;"
+          }, g.code);
       return el("div", {
         style: "background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;cursor:pointer;transition:box-shadow .15s ease, transform .1s ease;display:flex;flex-direction:column;gap:12px;",
         role: "button", tabindex: "0", "aria-label": `View ${g.name}`,
@@ -302,9 +311,7 @@ function buildTypeGrid(assets, typeNames, onSelect) {
         onmouseleave: (e) => { e.currentTarget.style.boxShadow = "none"; e.currentTarget.style.transform = "translateY(0)"; }
       }, [
         el("div", { style: "display:flex;align-items:center;gap:10px;" }, [
-          el("div", {
-            style: "width:38px;height:38px;border-radius:50%;background:var(--accent-soft);color:var(--accent);display:flex;align-items:center;justify-content:center;font-size:10.5px;font-weight:800;letter-spacing:-.02em;flex:none;"
-          }, g.code),
+          visual,
           el("div", { style: "min-width:0;" }, [
             el("div", { style: "font-size:13px;font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" }, g.name),
             el("div", { style: "font-size:11px;color:var(--text-faint);" }, `${total} asset${total === 1 ? "" : "s"}`)

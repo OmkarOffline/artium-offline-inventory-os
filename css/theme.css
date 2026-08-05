@@ -13,6 +13,11 @@
   --bg-panel:#ffffff;
   --bg-hover:#f0f1f7;
   --bg-input:#f7f8fc;
+  /* Alias used throughout Settings/Users/Register cards — was referenced in
+     dozens of places but never actually defined, so every one of those
+     cards was silently rendering with a transparent background (border
+     only) instead of the intended white elevated surface. */
+  --bg-card:#ffffff;
 
   /* ---- Borders ---- */
   --border:#e3e6ee;
