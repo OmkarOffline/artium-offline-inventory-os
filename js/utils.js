@@ -31,6 +31,13 @@ export function formatCurrency(value) {
 export function el(tag, attrs = {}, children = []) {
   const node = document.createElement(tag);
   for (const [key, value] of Object.entries(attrs)) {
+    // Omit the attribute entirely for null/undefined — this is what every
+    // `checked: condition ? "checked" : null` call site expects. Without
+    // this, setAttribute(key, null) stringifies to the literal text "null",
+    // and for boolean attributes (checked, disabled, required, selected)
+    // merely being PRESENT turns them on regardless of that text — so every
+    // conditionally-unchecked checkbox in the app was rendering checked.
+    if (value === null || value === undefined) continue;
     if (key === "class") node.className = value;
     else if (key === "html") node.innerHTML = value;
     else if (key.startsWith("on") && typeof value === "function") node.addEventListener(key.slice(2), value);
