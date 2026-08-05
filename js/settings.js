@@ -16,7 +16,7 @@ import { downloadJSON } from "./csv.js";
 import { invalidateRoomsCache } from "./refcache.js";
 import { logActivity } from "./activity.js";
 import { listStaff, listActiveStaff, courseCodesLabel } from "./staff.js";
-import { listAssetTypes, createAssetType, updateAssetType, countAssetMastersUsingType } from "./assetMaster.js";
+import { listAssetTypes, createAssetType, updateAssetType, countAssetMastersUsingType, normalizeTypeCode } from "./assetMaster.js";
 import { nextSequence, buildAssetId } from "./addAsset.js";
 import { CLOSE_ICON } from "./icons.js";
 
@@ -304,13 +304,21 @@ async function openAssetTypeFormModal(existing, state, onDone) {
   const isEdit = !!existing;
   const overlay = el("div", { class: "modal-overlay show", role: "dialog", "aria-modal": "true" });
   const nameInput = el("input", { class: "field-input", type: "text", value: existing?.name || "" });
-  const codeInput = el("input", { class: "field-input", type: "text", value: existing?.code || "", style: "text-transform:uppercase;" });
+  const codeInput = el("input", { class: "field-input", type: "text", value: existing?.code || "", maxlength: "8", style: "text-transform:uppercase;" });
+  // Sanitize as they type, not just on save — this is what stops someone
+  // from pasting a full descriptive label ("BTS - Bluetooth Speaker") into
+  // Code and having it silently become part of every Asset ID that type
+  // generates.
+  codeInput.addEventListener("input", () => {
+    const clean = normalizeTypeCode(codeInput.value);
+    if (clean !== codeInput.value) codeInput.value = clean;
+  });
 
   const modal = el("div", { class: "modal" }, [
     el("div", { class: "modal-header" }, [el("h2", {}, isEdit ? "Edit Asset Type" : "Add Asset Type"), el("button", { class: "btn-icon-only", "aria-label": "Close", onclick: () => overlay.remove() }, [el("img", { src: CLOSE_ICON, alt: "", class: "icon-img", loading: "lazy" })])]),
     el("div", { class: "modal-body" }, [
       el("div", { class: "field-group" }, [el("div", { class: "field-label" }, "Type Name"), nameInput]),
-      el("div", { class: "field-group" }, [el("div", { class: "field-label" }, "Code (used in Asset IDs)"), codeInput]),
+      el("div", { class: "field-group" }, [el("div", { class: "field-label" }, "Code (used in Asset IDs — letters/numbers only, short)"), codeInput]),
       isEdit ? el("div", { style: "font-size:11.5px;color:var(--text-faint);" },
         "If you change the Code, you'll be asked whether to also regenerate the Asset IDs of every existing asset currently using the old code — each one keeps its previous ID in history and gets flagged for a label reprint, exactly like an individual \"Correct Asset Type\" would.") : null
     ].filter(Boolean)),
@@ -318,9 +326,9 @@ async function openAssetTypeFormModal(existing, state, onDone) {
       el("button", { class: "btn btn-ghost", onclick: () => overlay.remove() }, "Cancel"),
       el("button", { class: "btn btn-primary", onclick: async (e) => {
         const name = nameInput.value.trim();
-        const code = codeInput.value.trim().toUpperCase();
+        const code = normalizeTypeCode(codeInput.value);
         if (!name) { showToast("Type Name is required", "red"); return; }
-        if (!code) { showToast("Code is required", "red"); return; }
+        if (!code) { showToast("Code must contain at least one letter or number", "red"); return; }
 
         e.target.disabled = true;
         try {

@@ -254,15 +254,27 @@ export function openAddAssetModal(state, onSaved) {
             const wrap = el("div", { style: "display:flex;gap:6px;" }, [
               selectEl(typeSelectId, assetTypes.map((t) => ({ value: t.code, label: `${t.code} — ${t.name}` })), null, "Select a type"),
               el("button", { class: "btn btn-secondary btn-sm", type: "button", onclick: async () => {
-                const code = window.prompt("New Asset Type code (e.g. AMP):");
-                if (!code) return;
-                const name = window.prompt("Name for this type (e.g. Amplifier):", code);
+                const rawCode = window.prompt("New Asset Type code — short, letters/numbers only (e.g. AMP):");
+                if (!rawCode) return;
+                const name = window.prompt("Name for this type (e.g. Amplifier):", rawCode);
                 if (!name) return;
-                const created = await createAssetType(code, name);
-                assetTypes.push(created);
-                const sel = document.getElementById(typeSelectId);
-                sel.appendChild(new Option(`${created.code} — ${created.name}`, created.code));
-                sel.value = created.code;
+                try {
+                  const created = await createAssetType(rawCode, name);
+                  // createAssetType strips anything but letters/numbers, so
+                  // confirm what actually got saved — this is what stops a
+                  // pasted description ("AMP - Amplifier") from silently
+                  // becoming part of every Asset ID this type generates.
+                  if (created.code !== rawCode.trim().toUpperCase()) {
+                    showToast(`Saved as code "${created.code}" (spaces/symbols removed)`, "amber");
+                  }
+                  assetTypes.push(created);
+                  const sel = document.getElementById(typeSelectId);
+                  sel.appendChild(new Option(`${created.code} — ${created.name}`, created.code));
+                  sel.value = created.code;
+                } catch (err) {
+                  console.error("[addAsset] Failed to create Asset Type:", err);
+                  showToast(err.message || "Couldn't create Asset Type", "red");
+                }
               } }, "+ New Type")
             ]);
             return wrap;

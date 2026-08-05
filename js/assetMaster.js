@@ -17,9 +17,21 @@ export async function listAssetTypes() {
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 }
 
+/**
+ * Codes are a bare segment of every Asset ID (e.g. "...-BTS-0001"), so they
+ * must be short and clean — letters/digits only, no spaces or punctuation.
+ * Without this, pasting a descriptive label into the Code field (e.g. "BTS -
+ * Bluetooth Speaker") silently becomes part of every Asset ID generated
+ * under it, which is exactly the malformed ID this normalization prevents.
+ */
+export function normalizeTypeCode(code) {
+  return (code || "").trim().toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 8);
+}
+
 /** Create a new Asset Type inline. Code is the document id (e.g. "TAB"). */
 export async function createAssetType(code, name) {
-  const normalizedCode = code.trim().toUpperCase();
+  const normalizedCode = normalizeTypeCode(code);
+  if (!normalizedCode) throw new Error("Asset Type code must contain at least one letter or number.");
   await setDoc(doc(db, "assetTypes", normalizedCode), { code: normalizedCode, name: name.trim() });
   return { id: normalizedCode, code: normalizedCode, name: name.trim() };
 }
@@ -43,7 +55,8 @@ export async function countAssetMastersUsingType(code) {
  * over individually.
  */
 export async function updateAssetType(existingCode, data) {
-  const newCode = data.code.trim().toUpperCase();
+  const newCode = normalizeTypeCode(data.code);
+  if (!newCode) throw new Error("Asset Type code must contain at least one letter or number.");
   const name = data.name.trim();
   if (newCode === existingCode) {
     await updateDoc(doc(db, "assetTypes", existingCode), { name });
