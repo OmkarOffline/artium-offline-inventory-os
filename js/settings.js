@@ -16,6 +16,7 @@ import { downloadJSON } from "./csv.js";
 import { invalidateRoomsCache } from "./refcache.js";
 import { logActivity } from "./activity.js";
 import { listStaff, listActiveStaff, courseCodesLabel } from "./staff.js";
+import { listAssetTypes, createAssetType, updateAssetType, countAssetMastersUsingType } from "./assetMaster.js";
 import { CLOSE_ICON } from "./icons.js";
 
 const BACKUP_COLLECTIONS = [
@@ -43,6 +44,10 @@ export async function renderSettingsPage(container, state) {
   const roomsCard = el("div", { style: "background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-sm);padding:16px;margin-bottom:14px;" });
   container.appendChild(roomsCard);
   await renderRoomsCard(roomsCard, state);
+
+  const assetTypesCard = el("div", { style: "background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-sm);padding:16px;margin-bottom:14px;" });
+  container.appendChild(assetTypesCard);
+  await renderAssetTypesCard(assetTypesCard, state);
 
   const backupCard = el("div", { style: "background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-sm);padding:16px;" }, [
     el("div", { style: "font-size:12.5px;font-weight:700;color:var(--text);margin-bottom:6px;" }, "Data Backup"),
@@ -245,6 +250,119 @@ async function reassignRoomAssetsToTeacher(roomId, centreId, teacherName, state)
       summary: `${asset.assetId}: Custodian: ${oldCustodian} → ${teacherName} (room's assigned teacher)`
     });
   }
+}
+
+// ---------------------------------------------------------------------------
+// Asset Types — the code/name registry (e.g. "PHN" → Smartphone) used to
+// build every Asset ID. Previously this could only be created inline while
+// adding an Asset Master, with no way to fix a code afterwards — the "CAP
+// instead of PHN" mixup had no cleanup path at the registry level. Note the
+// Code is the Firestore document id, so a code change under the hood creates
+// a fresh /assetTypes doc and removes the old one — it does not retroactively
+// touch any Asset Master or Asset that already copied the old code (same
+// "history stays accurate" rule used everywhere else; see updateAssetType).
+// ---------------------------------------------------------------------------
+async function renderAssetTypesCard(card, state) {
+  card.innerHTML = "";
+  card.appendChild(el("div", { style: "font-size:12.5px;font-weight:700;color:var(--text);margin-bottom:6px;" }, "Asset Types"));
+  card.appendChild(el("div", { style: "font-size:11.5px;color:var(--text-faint);margin-bottom:12px;" },
+    "The code/name catalogue used to build Asset IDs (e.g. \"PHN\" for Smartphone). Editing a Code here only affects new Asset IDs going forward — Asset Masters or assets already using the old code keep it until edited individually (Edit Asset Master / Correct Asset Type)."));
+
+  const listWrap = el("div", {});
+  card.appendChild(listWrap);
+
+  const addBtn = el("button", { class: "btn btn-secondary btn-sm", style: "margin-top:10px;" }, "+ Add Asset Type");
+  card.appendChild(addBtn);
+  addBtn.addEventListener("click", () => openAssetTypeFormModal(null, loadTypes));
+
+  async function loadTypes() {
+    listWrap.innerHTML = "<div style=\"font-size:12px;color:var(--text-faint);padding:8px 0;\">Loading…</div>";
+    const types = await listAssetTypes();
+    listWrap.innerHTML = "";
+    if (!types.length) {
+      listWrap.appendChild(el("div", { style: "font-size:12px;color:var(--text-faint);padding:8px 0;" }, "No asset types yet."));
+      return;
+    }
+    types.forEach((t) => {
+      listWrap.appendChild(el("div", {
+        style: "display:flex;justify-content:space-between;align-items:center;background:var(--bg-input);border-radius:var(--radius-sm);padding:8px 12px;margin-bottom:6px;"
+      }, [
+        el("div", {}, [
+          el("span", { style: "font-size:12.5px;font-weight:700;color:var(--accent);" }, t.code),
+          el("span", { style: "font-size:12.5px;color:var(--text);margin-left:8px;" }, t.name)
+        ]),
+        el("button", { class: "btn btn-ghost btn-sm", onclick: () => openAssetTypeFormModal(t, loadTypes) }, "Edit")
+      ]));
+    });
+  }
+
+  await loadTypes();
+}
+
+async function openAssetTypeFormModal(existing, onDone) {
+  const isEdit = !!existing;
+  const overlay = el("div", { class: "modal-overlay show", role: "dialog", "aria-modal": "true" });
+  const nameInput = el("input", { class: "field-input", type: "text", value: existing?.name || "" });
+  const codeInput = el("input", { class: "field-input", type: "text", value: existing?.code || "", style: "text-transform:uppercase;" });
+
+  const modal = el("div", { class: "modal" }, [
+    el("div", { class: "modal-header" }, [el("h2", {}, isEdit ? "Edit Asset Type" : "Add Asset Type"), el("button", { class: "btn-icon-only", "aria-label": "Close", onclick: () => overlay.remove() }, [el("img", { src: CLOSE_ICON, alt: "", class: "icon-img", loading: "lazy" })])]),
+    el("div", { class: "modal-body" }, [
+      el("div", { class: "field-group" }, [el("div", { class: "field-label" }, "Type Name"), nameInput]),
+      el("div", { class: "field-group" }, [el("div", { class: "field-label" }, "Code (used in Asset IDs)"), codeInput]),
+      isEdit ? el("div", { style: "font-size:11.5px;color:var(--text-faint);" },
+        "Changing the Code only affects new Asset IDs from now on. Existing Asset Masters and assets that already used the old code keep it until you edit them individually.") : null
+    ].filter(Boolean)),
+    el("div", { class: "modal-footer" }, [
+      el("button", { class: "btn btn-ghost", onclick: () => overlay.remove() }, "Cancel"),
+      el("button", { class: "btn btn-primary", onclick: async (e) => {
+        const name = nameInput.value.trim();
+        const code = codeInput.value.trim().toUpperCase();
+        if (!name) { showToast("Type Name is required", "red"); return; }
+        if (!code) { showToast("Code is required", "red"); return; }
+
+        e.target.disabled = true;
+        try {
+          if (isEdit) {
+            const codeChanged = code !== existing.code;
+            if (codeChanged) {
+              const types = await listAssetTypes();
+              if (types.some((t) => t.code === code)) {
+                showToast(`Code "${code}" is already used by another type`, "red");
+                e.target.disabled = false;
+                return;
+              }
+              const usageCount = await countAssetMastersUsingType(existing.code);
+              if (usageCount > 0) {
+                const ok = window.confirm(
+                  `${usageCount} Asset Master${usageCount === 1 ? "" : "s"} currently use${usageCount === 1 ? "s" : ""} the code "${existing.code}". They will keep showing "${existing.code}" until edited individually — this only changes the registry entry and future Asset IDs. Continue?`
+                );
+                if (!ok) { e.target.disabled = false; return; }
+              }
+            }
+            await updateAssetType(existing.code, { code, name });
+          } else {
+            const types = await listAssetTypes();
+            if (types.some((t) => t.code === code)) {
+              showToast(`Code "${code}" already exists`, "red");
+              e.target.disabled = false;
+              return;
+            }
+            await createAssetType(code, name);
+          }
+          showToast(isEdit ? "Asset Type updated" : "Asset Type added", "green");
+          overlay.remove();
+          if (onDone) onDone();
+        } catch (err) {
+          console.error("[settings] Failed to save asset type:", err);
+          showToast("Couldn't save asset type. Check your permissions.", "red");
+          e.target.disabled = false;
+        }
+      } }, isEdit ? "Save" : "Add")
+    ])
+  ]);
+  overlay.appendChild(modal);
+  document.body.appendChild(overlay);
 }
 
 function detailRow(label, value) {

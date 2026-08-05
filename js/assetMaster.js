@@ -9,7 +9,7 @@
 
 import { db } from "./firebase.js";
 import {
-  collection, doc, getDocs, setDoc, addDoc, updateDoc, query, orderBy, serverTimestamp
+  collection, doc, getDocs, setDoc, addDoc, updateDoc, deleteDoc, query, where, orderBy, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 export async function listAssetTypes() {
@@ -22,6 +22,36 @@ export async function createAssetType(code, name) {
   const normalizedCode = code.trim().toUpperCase();
   await setDoc(doc(db, "assetTypes", normalizedCode), { code: normalizedCode, name: name.trim() });
   return { id: normalizedCode, code: normalizedCode, name: name.trim() };
+}
+
+/** How many Asset Masters currently point at a given type code — shown as a
+ *  heads-up before a code is renamed, since those Masters won't be updated
+ *  automatically (see updateAssetType below). */
+export async function countAssetMastersUsingType(code) {
+  const snap = await getDocs(query(collection(db, "assetMasters"), where("assetTypeCode", "==", code)));
+  return snap.size;
+}
+
+/**
+ * Edit an Asset Type's name and/or code from Settings. The name is a plain
+ * field and updates in place. The code is different — it's the Firestore
+ * document id, and document ids can't be renamed — so a code change creates
+ * a new /assetTypes doc under the new code and removes the old one. Any
+ * Asset Masters or Assets that already recorded the old code keep it (same
+ * "history stays accurate" rule as everywhere else in the app); use "Edit"
+ * on the Asset Master or "Correct Asset Type" on an asset to move those
+ * over individually.
+ */
+export async function updateAssetType(existingCode, data) {
+  const newCode = data.code.trim().toUpperCase();
+  const name = data.name.trim();
+  if (newCode === existingCode) {
+    await updateDoc(doc(db, "assetTypes", existingCode), { name });
+    return { id: existingCode, code: existingCode, name };
+  }
+  await setDoc(doc(db, "assetTypes", newCode), { code: newCode, name });
+  await deleteDoc(doc(db, "assetTypes", existingCode));
+  return { id: newCode, code: newCode, name };
 }
 
 export async function listAssetMasters() {
