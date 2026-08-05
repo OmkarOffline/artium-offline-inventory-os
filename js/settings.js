@@ -10,13 +10,14 @@
 // =============================================================================
 
 import { db } from "./firebase.js";
-import { collection, addDoc, updateDoc, doc, getDocs, query, where, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { collection, addDoc, updateDoc, doc, getDoc, getDocs, query, where, arrayUnion, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { el, showToast, roomDisplayName, roomNeedsTeacher } from "./utils.js";
 import { downloadJSON } from "./csv.js";
 import { invalidateRoomsCache } from "./refcache.js";
 import { logActivity } from "./activity.js";
 import { listStaff, listActiveStaff, courseCodesLabel } from "./staff.js";
 import { listAssetTypes, createAssetType, updateAssetType, countAssetMastersUsingType } from "./assetMaster.js";
+import { nextSequence, buildAssetId } from "./addAsset.js";
 import { CLOSE_ICON } from "./icons.js";
 
 const BACKUP_COLLECTIONS = [
@@ -266,14 +267,14 @@ async function renderAssetTypesCard(card, state) {
   card.innerHTML = "";
   card.appendChild(el("div", { style: "font-size:12.5px;font-weight:700;color:var(--text);margin-bottom:6px;" }, "Asset Types"));
   card.appendChild(el("div", { style: "font-size:11.5px;color:var(--text-faint);margin-bottom:12px;" },
-    "The code/name catalogue used to build Asset IDs (e.g. \"PHN\" for Smartphone). Editing a Code here only affects new Asset IDs going forward — Asset Masters or assets already using the old code keep it until edited individually (Edit Asset Master / Correct Asset Type)."));
+    "The code/name catalogue used to build Asset IDs (e.g. \"PHN\" for Smartphone). Changing a Code here will offer to regenerate the Asset IDs of every existing asset still using the old code, so a mistyped code can be fully corrected in one go."));
 
   const listWrap = el("div", {});
   card.appendChild(listWrap);
 
   const addBtn = el("button", { class: "btn btn-secondary btn-sm", style: "margin-top:10px;" }, "+ Add Asset Type");
   card.appendChild(addBtn);
-  addBtn.addEventListener("click", () => openAssetTypeFormModal(null, loadTypes));
+  addBtn.addEventListener("click", () => openAssetTypeFormModal(null, state, loadTypes));
 
   async function loadTypes() {
     listWrap.innerHTML = "<div style=\"font-size:12px;color:var(--text-faint);padding:8px 0;\">Loading…</div>";
@@ -291,7 +292,7 @@ async function renderAssetTypesCard(card, state) {
           el("span", { style: "font-size:12.5px;font-weight:700;color:var(--accent);" }, t.code),
           el("span", { style: "font-size:12.5px;color:var(--text);margin-left:8px;" }, t.name)
         ]),
-        el("button", { class: "btn btn-ghost btn-sm", onclick: () => openAssetTypeFormModal(t, loadTypes) }, "Edit")
+        el("button", { class: "btn btn-ghost btn-sm", onclick: () => openAssetTypeFormModal(t, state, loadTypes) }, "Edit")
       ]));
     });
   }
@@ -299,7 +300,7 @@ async function renderAssetTypesCard(card, state) {
   await loadTypes();
 }
 
-async function openAssetTypeFormModal(existing, onDone) {
+async function openAssetTypeFormModal(existing, state, onDone) {
   const isEdit = !!existing;
   const overlay = el("div", { class: "modal-overlay show", role: "dialog", "aria-modal": "true" });
   const nameInput = el("input", { class: "field-input", type: "text", value: existing?.name || "" });
@@ -311,7 +312,7 @@ async function openAssetTypeFormModal(existing, onDone) {
       el("div", { class: "field-group" }, [el("div", { class: "field-label" }, "Type Name"), nameInput]),
       el("div", { class: "field-group" }, [el("div", { class: "field-label" }, "Code (used in Asset IDs)"), codeInput]),
       isEdit ? el("div", { style: "font-size:11.5px;color:var(--text-faint);" },
-        "Changing the Code only affects new Asset IDs from now on. Existing Asset Masters and assets that already used the old code keep it until you edit them individually.") : null
+        "If you change the Code, you'll be asked whether to also regenerate the Asset IDs of every existing asset currently using the old code — each one keeps its previous ID in history and gets flagged for a label reprint, exactly like an individual \"Correct Asset Type\" would.") : null
     ].filter(Boolean)),
     el("div", { class: "modal-footer" }, [
       el("button", { class: "btn btn-ghost", onclick: () => overlay.remove() }, "Cancel"),
@@ -332,15 +333,37 @@ async function openAssetTypeFormModal(existing, onDone) {
                 e.target.disabled = false;
                 return;
               }
-              const usageCount = await countAssetMastersUsingType(existing.code);
-              if (usageCount > 0) {
-                const ok = window.confirm(
-                  `${usageCount} Asset Master${usageCount === 1 ? "" : "s"} currently use${usageCount === 1 ? "s" : ""} the code "${existing.code}". They will keep showing "${existing.code}" until edited individually — this only changes the registry entry and future Asset IDs. Continue?`
+
+              const oldCode = existing.code;
+              const [masterCount, assetSnap] = await Promise.all([
+                countAssetMastersUsingType(oldCode),
+                getDocs(query(collection(db, "assets"), where("assetTypeCode", "==", oldCode)))
+              ]);
+              const assetsToMigrate = assetSnap.docs
+                .map((d) => ({ id: d.id, ...d.data() }))
+                .filter((a) => a.currentStatus !== "disposed");
+
+              let migrate = false;
+              if (masterCount > 0 || assetsToMigrate.length > 0) {
+                migrate = window.confirm(
+                  `"${oldCode}" is used by ${masterCount} Asset Master${masterCount === 1 ? "" : "s"} and ${assetsToMigrate.length} existing asset${assetsToMigrate.length === 1 ? "" : "s"}.\n\n`
+                  + `Click OK to update all of them to "${code}" now — every affected asset gets a new Asset ID (old ID kept in history, label reprint flagged), same as an individual "Correct Asset Type".\n\n`
+                  + `Click Cancel to rename just the registry entry and leave existing Masters/assets showing "${oldCode}" until corrected individually.`
                 );
-                if (!ok) { e.target.disabled = false; return; }
               }
+
+              await updateAssetType(oldCode, { code, name });
+
+              if (migrate) {
+                await migrateAssetsToNewTypeCode(oldCode, code, masterCount > 0, assetsToMigrate, state);
+                showToast(`Asset Type updated — ${assetsToMigrate.length} asset ID${assetsToMigrate.length === 1 ? "" : "s"} regenerated`, "green");
+              } else {
+                showToast("Asset Type updated", "green");
+              }
+            } else {
+              await updateAssetType(existing.code, { code, name });
+              showToast("Asset Type updated", "green");
             }
-            await updateAssetType(existing.code, { code, name });
           } else {
             const types = await listAssetTypes();
             if (types.some((t) => t.code === code)) {
@@ -349,8 +372,8 @@ async function openAssetTypeFormModal(existing, onDone) {
               return;
             }
             await createAssetType(code, name);
+            showToast("Asset Type added", "green");
           }
-          showToast(isEdit ? "Asset Type updated" : "Asset Type added", "green");
           overlay.remove();
           if (onDone) onDone();
         } catch (err) {
@@ -363,6 +386,51 @@ async function openAssetTypeFormModal(existing, onDone) {
   ]);
   overlay.appendChild(modal);
   document.body.appendChild(overlay);
+}
+
+/**
+ * Bulk-applies a corrected Asset Type code to everything still using the old
+ * one — the follow-through the user asked for after discovering that
+ * renaming a type in the registry didn't touch assets already created under
+ * the wrong code. Asset Masters are simple field updates (no physical label
+ * involved). Assets are regenerated one at a time through the exact same
+ * mechanics as the per-asset "Correct Asset Type" action (fresh sequence
+ * number under the new code, old ID preserved in previousAssetIds, label
+ * reprint flagged) so a bulk fix behaves identically to N individual ones.
+ */
+async function migrateAssetsToNewTypeCode(oldCode, newCode, hasMasters, assets, state) {
+  if (hasMasters) {
+    const mastersSnap = await getDocs(query(collection(db, "assetMasters"), where("assetTypeCode", "==", oldCode)));
+    for (const m of mastersSnap.docs) {
+      await updateDoc(doc(db, "assetMasters", m.id), { assetTypeCode: newCode });
+    }
+  }
+
+  for (const asset of assets) {
+    try {
+      const roomSnap = await getDoc(doc(db, "rooms", asset.roomId));
+      if (!roomSnap.exists()) continue;
+      const roomCode = roomSnap.data().code;
+      const oldAssetId = asset.assetId;
+      const newSeq = await nextSequence(asset.centreId, newCode);
+      const newAssetId = buildAssetId(asset.centreId, roomCode, newCode, newSeq);
+
+      await updateDoc(doc(db, "assets", asset.id), {
+        assetId: newAssetId,
+        assetTypeCode: newCode,
+        previousAssetIds: arrayUnion(oldAssetId),
+        labelReprintRequired: true,
+        lastModifiedBy: state.profile.uid,
+        lastModifiedAt: serverTimestamp()
+      });
+      await logActivity(state, {
+        type: "asset_type_corrected", assetId: asset.id, centreId: asset.centreId,
+        summary: `${oldAssetId} corrected from type ${oldCode} to ${newCode} (bulk registry correction) — new ID ${newAssetId}`
+      });
+    } catch (err) {
+      console.error(`[settings] Failed to migrate asset ${asset.id} to new type code:`, err);
+    }
+  }
 }
 
 function detailRow(label, value) {
