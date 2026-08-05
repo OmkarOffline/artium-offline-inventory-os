@@ -249,7 +249,7 @@ export async function openAssetProfile(assetId, state, onChanged) {
     }
 
     if (asset.currentStatus === "active" || asset.currentStatus === "under_repair") {
-      buttons.push(el("button", { class: "btn btn-ghost btn-sm", onclick: () => openDisposalRequestModal(asset, state, refresh) }, "Request Disposal"));
+      buttons.push(el("button", { class: "btn btn-secondary btn-sm", style: "color:var(--red);", onclick: () => openDisposalRequestModal(asset, state, refresh) }, "Request Disposal"));
     }
 
     return el("div", { style: "display:flex;flex-wrap:wrap;gap:6px;margin-top:12px;" }, buttons);

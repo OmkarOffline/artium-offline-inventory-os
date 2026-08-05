@@ -11,7 +11,7 @@
 
 import { db } from "./firebase.js";
 import { collection, addDoc, updateDoc, doc, getDocs, query, where, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { el, showToast, roomDisplayName } from "./utils.js";
+import { el, showToast, roomDisplayName, roomNeedsTeacher } from "./utils.js";
 import { downloadJSON } from "./csv.js";
 import { invalidateRoomsCache } from "./refcache.js";
 import { logActivity } from "./activity.js";
@@ -125,7 +125,9 @@ async function renderRoomsCard(card, state) {
             el("span", { style: "font-size:11px;color:var(--text-faint);margin-left:8px;" }, r.code)
           ]),
           el("div", { style: "font-size:11px;color:var(--text-faint);margin-top:2px;" },
-            r.defaultCustodian ? `Assigned teacher: ${r.defaultCustodian}${courseBadge ? ` (${courseBadge})` : ""}` : "No teacher assigned")
+            r.defaultCustodian
+              ? `Assigned teacher: ${r.defaultCustodian}${courseBadge ? ` (${courseBadge})` : ""}`
+              : (roomNeedsTeacher(r.name) ? "No teacher assigned" : "Not a teaching room"))
         ]),
         el("button", { class: "btn btn-ghost btn-sm", onclick: () => openRoomFormModal(r, state, centreSelect.value, loadRooms) }, "Edit")
       ]));

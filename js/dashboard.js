@@ -8,7 +8,7 @@
 
 import { db } from "./firebase.js";
 import { collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { el, renderEmptyState, formatDateTime, roomDisplayName } from "./utils.js";
+import { el, renderEmptyState, formatDateTime, roomDisplayName, roomNeedsTeacher } from "./utils.js";
 import { listRecentActivity } from "./activity.js";
 import { roomIconFor } from "./icons.js";
 import { getRoomsForCentre } from "./refcache.js";
@@ -100,6 +100,7 @@ async function renderRoomCards(container, state, assets) {
     const count = countByRoom[room.id] || 0;
     const iconUrl = roomIconFor(room.name);
     const displayName = roomDisplayName(room.name) || "Untitled Room";
+    const teacherLine = room.defaultCustodian || (roomNeedsTeacher(room.name) ? "Teacher Unassigned" : null);
     container.appendChild(
       el("div", {
         class: "room-card",
@@ -113,10 +114,10 @@ async function renderRoomCards(container, state, assets) {
           ? [el("img", { src: iconUrl, alt: "", loading: "lazy" })]
           : "▢"),
         el("div", { class: "room-card-lines" }, [
-          el("div", { class: "room-card-line" }, displayName),
-          el("div", { class: "room-card-line" }, room.defaultCustodian || "Teacher Unassigned"),
-          el("div", { class: "room-card-line" }, `${count} active asset${count === 1 ? "" : "s"}`)
-        ])
+          el("div", { class: "room-card-line room-card-line-name" }, displayName),
+          teacherLine ? el("div", { class: "room-card-line room-card-line-teacher" }, teacherLine) : null,
+          el("div", { class: "room-card-line room-card-line-count" }, `${count} active asset${count === 1 ? "" : "s"}`)
+        ].filter(Boolean))
       ])
     );
   });

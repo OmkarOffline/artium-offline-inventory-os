@@ -64,11 +64,14 @@
 .room-card-name{font-size:14px;font-weight:700;color:var(--text);}
 .room-card-count{font-size:11.5px;color:var(--text-faint);font-weight:600;}
 
-/* Dashboard room cards specifically: three equal-weight lines (Room name,
-   Assigned Teacher, Asset count) rather than one bold heading + one faint
-   caption — none of the three should visually outrank the others. */
+/* Dashboard room cards specifically: three lines (Room name, Assigned
+   Teacher, Asset count) in descending weight — the room name is what you're
+   scanning for, so it outranks the other two, which step down in turn. */
 .room-card-lines{display:flex;flex-direction:column;gap:3px;}
-.room-card-line{font-size:13px;font-weight:600;color:var(--text-dim);}
+.room-card-line{color:var(--text-dim);}
+.room-card-line-name{font-size:15px;font-weight:700;color:var(--text);}
+.room-card-line-teacher{font-size:12.5px;font-weight:600;color:var(--text-dim);}
+.room-card-line-count{font-size:11.5px;font-weight:500;color:var(--text-faint);}
 
 /* ---------- Stat Cards ---------- */
 .stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;}
@@ -106,6 +109,19 @@
 .panel-header{padding:18px 20px 14px;border-bottom:1px solid var(--border-soft);background:#fff;}
 .panel-body{flex:1;overflow:auto;padding:16px 20px 20px;display:flex;flex-direction:column;gap:18px;}
 .panel-footer{padding:14px 20px;border-top:1px solid var(--border-soft);display:flex;gap:8px;background:#fff;}
+
+/* Asset Profile "quick glance" row (Room / Custodian / Vendor) — referenced
+   in assetProfile.js since it was first built but never actually styled,
+   so it rendered as plain stacked text with no visual structure. */
+.quick-glance{
+  display:grid;grid-template-columns:repeat(3,1fr);gap:14px;
+  margin-top:14px;padding:12px 14px;background:var(--bg-input);
+  border:1px solid var(--border-soft);border-radius:var(--radius-sm);
+}
+.qg-item{display:flex;flex-direction:column;gap:3px;min-width:0;}
+.qg-label{font-size:10.5px;font-weight:700;color:var(--text-faint);text-transform:uppercase;letter-spacing:.04em;}
+.qg-value{font-size:13px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+@media (max-width: 480px){ .quick-glance{grid-template-columns:1fr;} }
 .panel-footer .btn{flex:1;justify-content:center;}
 
 /* Activity feed rows — Dashboard "Recent Activity" and the Asset Profile's

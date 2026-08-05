@@ -29,7 +29,10 @@ const COLUMNS = [
 ];
 const ALL_COLUMN_KEYS = COLUMNS.map((c) => c.key);
 
-let sortState = { key: "assetId", dir: "asc" };
+// Default: most recently purchased asset first — older assets sink to the
+// bottom. A user can still click any column header to sort differently;
+// this only governs what's shown before they've made their own choice.
+let sortState = { key: "purchaseDate", dir: "desc" };
 let searchTerm = "";
 let visibleColumns = [...ALL_COLUMN_KEYS];
 let prefsAppliedThisSession = false;

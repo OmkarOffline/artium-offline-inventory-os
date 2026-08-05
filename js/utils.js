@@ -40,6 +40,16 @@ export function roomDisplayName(name) {
   return trimmed || name;
 }
 
+// Utility/office spaces don't have a teacher of record — no point nagging
+// "Teacher Unassigned" on rooms that were never meant to have one.
+const NO_TEACHER_ROOM_PATTERNS = [/pantry/i, /head.*cabin|cabin.*head|centre head/i, /reception/i, /stage/i];
+
+/** Whether a room name refers to a teaching space that should show an assigned-teacher line. */
+export function roomNeedsTeacher(name) {
+  if (!name) return true;
+  return !NO_TEACHER_ROOM_PATTERNS.some((p) => p.test(name));
+}
+
 /** Small DOM creation helper to avoid repetitive document.createElement chains. */
 export function el(tag, attrs = {}, children = []) {
   const node = document.createElement(tag);
