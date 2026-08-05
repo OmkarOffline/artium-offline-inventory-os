@@ -15,6 +15,7 @@ import { openAssetProfile } from "./assetProfile.js";
 import { downloadCSV } from "./csv.js";
 import { getRegisterPrefs, saveRegisterPrefs, listSavedViews, saveView, deleteView } from "./workspace.js";
 import { getRoomsForCentre, getVendors } from "./refcache.js";
+import { listAssetTypes } from "./assetMaster.js";
 
 const COLUMNS = [
   { key: "assetId", label: "Asset ID", locked: true },
@@ -64,6 +65,21 @@ export async function renderRegister(container, state) {
     }
   }
 
+  // Drill-down view state — local to this render, so it always resets back
+  // to the Asset Type grid whenever you navigate into the Register or a
+  // Room fresh (grid is the "home" state; typeFilter/forceListView are how
+  // you get to the flat table, either by clicking a tile or the List View
+  // toggle).
+  let typeFilter = null; // { code, name } once a tile has been clicked
+  let forceListView = false;
+
+  const gridListToggleBtn = el("button", { class: "btn btn-secondary btn-sm" }, "View as List");
+  gridListToggleBtn.addEventListener("click", () => {
+    forceListView = !forceListView;
+    typeFilter = null;
+    load();
+  });
+
   const header = el("div", { style: "display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:10px;flex-wrap:wrap;" }, [
     el("div", { class: "search-wrap", style: "max-width:340px;" }, [
       el("input", {
@@ -76,6 +92,7 @@ export async function renderRegister(container, state) {
       })
     ]),
     el("div", { style: "display:flex;gap:6px;flex-wrap:wrap;" }, [
+      gridListToggleBtn,
       savedViewsControl(state, () => load()),
       columnsControl(state, () => load()),
       el("button", { class: "btn btn-secondary btn-sm", onclick: () => exportCurrentView() }, "Export CSV"),
@@ -97,6 +114,7 @@ export async function renderRegister(container, state) {
         class: "chip-remove", role: "button", tabindex: "0", "aria-label": "Remove room filter",
         onclick: () => {
           state.registerRoomFilter = null;
+          typeFilter = null;
           renderFilterChip();
           load();
           saveRegisterPrefs(state, { roomFilterId: null, roomFilterName: null });
@@ -105,6 +123,7 @@ export async function renderRegister(container, state) {
           if (e.key !== "Enter" && e.key !== " ") return;
           e.preventDefault();
           state.registerRoomFilter = null;
+          typeFilter = null;
           renderFilterChip();
           load();
           saveRegisterPrefs(state, { roomFilterId: null, roomFilterName: null });
@@ -118,17 +137,27 @@ export async function renderRegister(container, state) {
 
   let currentAssets = [];
 
+  /**
+   * The Register (and a room's asset list, which is just the Register with
+   * a room filter applied) lands on an Asset Type grid first — "1
+   * microphone, 1 upright stand, 1 Bluetooth speaker..." at a glance —
+   * rather than a flat table. Clicking a tile, searching, or the List View
+   * toggle drops into the familiar sortable/exportable table, scoped to
+   * whatever got you there.
+   */
   async function load() {
     tableWrap.innerHTML = "<div style=\"padding:20px;color:var(--text-faint);font-size:12.5px;\">Loading…</div>";
 
-    const [assetsSnap, rooms, vendors] = await Promise.all([
+    const [assetsSnap, rooms, vendors, assetTypes] = await Promise.all([
       getDocs(query(collection(db, "assets"), where("centreId", "==", state.activeCentreId))),
       getRoomsForCentre(state.activeCentreId),
-      getVendors()
+      getVendors(),
+      listAssetTypes()
     ]);
 
     const roomNames = Object.fromEntries(rooms.map((r) => [r.id, roomDisplayName(r.name)]));
     const vendorNames = Object.fromEntries(vendors.map((v) => [v.id, v.companyName]));
+    const typeNames = Object.fromEntries(assetTypes.map((t) => [t.code, t.name]));
 
     let assets = assetsSnap.docs.map((d) => {
       const data = d.data();
@@ -144,44 +173,89 @@ export async function renderRegister(container, state) {
       assets = assets.filter((a) => a.roomId === state.registerRoomFilter.id);
     }
 
+    // The room/centre-scoped set, before search or a type-tile filter —
+    // this is what the grid groups by type, and what gets exported when
+    // there's nothing narrower currently on screen.
+    const scopedAssets = assets;
+
+    // Only meaningful at the "top level" (grid, or the forced full list) —
+    // once you've drilled into one type via a tile, the breadcrumb below is
+    // the way back, so hide this to avoid two controls doing similar things.
+    gridListToggleBtn.style.display = (searchTerm || typeFilter) ? "none" : "";
+    gridListToggleBtn.textContent = forceListView ? "View as Grid" : "View as List";
+
+    tableWrap.innerHTML = "";
+
+    if (!scopedAssets.length && !searchTerm) {
+      currentAssets = [];
+      const roomFiltered = !!state.registerRoomFilter;
+      renderEmptyState(tableWrap, {
+        title: roomFiltered
+          ? `${roomDisplayName(state.registerRoomFilter.name)} is looking a little bare`
+          : "No assets in this centre yet",
+        subtitle: roomFiltered
+          ? "Nothing's living here yet — add an asset, or transfer one in from another room."
+          : "Add the first asset to get started.",
+        actionLabel: "Add Asset",
+        onAction: () => openAddAssetModal(state, () => load())
+      });
+      return;
+    }
+
+    // Grid view — the default landing state. Search and the List View
+    // toggle both bypass it; clicking a tile sets typeFilter and re-loads
+    // into list view scoped to that type.
+    if (!searchTerm && !typeFilter && !forceListView) {
+      currentAssets = scopedAssets;
+      tableWrap.appendChild(buildTypeGrid(scopedAssets, typeNames, (group) => {
+        typeFilter = group;
+        load();
+      }));
+      return;
+    }
+
+    // List view — either from search, the List View toggle, or a clicked
+    // Asset Type tile. Breadcrumb back to the grid only makes sense when
+    // there's no active search (search already shows every match flatly).
+    let listAssets = scopedAssets;
+    if (typeFilter) listAssets = listAssets.filter((a) => a.assetTypeCode === typeFilter.code);
     if (searchTerm) {
-      assets = assets.filter((a) => {
+      listAssets = listAssets.filter((a) => {
         const haystack = [a.assetId, a.assetName, a.brand, a.model, a.manufacturerSerialNumber, a.currentCustodian, a.remarks]
           .join(" ").toLowerCase();
         return haystack.includes(searchTerm);
       });
     }
 
-    assets.sort((a, b) => {
+    listAssets.sort((a, b) => {
       const av = (a[sortState.key] ?? "").toString().toLowerCase();
       const bv = (b[sortState.key] ?? "").toString().toLowerCase();
       const cmp = av < bv ? -1 : av > bv ? 1 : 0;
       return sortState.dir === "asc" ? cmp : -cmp;
     });
 
-    currentAssets = assets;
+    currentAssets = listAssets;
 
-    tableWrap.innerHTML = "";
-    if (!assets.length) {
-      const roomFiltered = !!state.registerRoomFilter && !searchTerm;
+    if (!searchTerm && typeFilter) {
+      tableWrap.appendChild(el("div", { style: "display:flex;align-items:center;gap:10px;margin-bottom:10px;" }, [
+        el("button", { class: "btn btn-ghost btn-sm", onclick: () => { typeFilter = null; load(); } }, "‹ Asset Types"),
+        el("div", { style: "font-size:12.5px;font-weight:700;color:var(--text);" }, `${typeFilter.name} (${typeFilter.code}) · ${listAssets.length} asset${listAssets.length === 1 ? "" : "s"}`)
+      ]));
+    } else if (!searchTerm && forceListView) {
+      tableWrap.appendChild(el("div", { style: "font-size:12.5px;font-weight:700;color:var(--text);margin-bottom:10px;" }, `All Assets · ${listAssets.length}`));
+    }
+
+    if (!listAssets.length) {
       renderEmptyState(tableWrap, {
-        title: searchTerm
-          ? "No assets match your search"
-          : roomFiltered
-            ? `${roomDisplayName(state.registerRoomFilter.name)} is looking a little bare`
-            : "No assets in this centre yet",
-        subtitle: searchTerm
-          ? "Try a different search term."
-          : roomFiltered
-            ? "Nothing's living here yet — add an asset, or transfer one in from another room."
-            : "Add the first asset to get started.",
+        title: searchTerm ? "No assets match your search" : "No assets of this type",
+        subtitle: searchTerm ? "Try a different search term." : "Nothing here yet.",
         actionLabel: searchTerm ? null : "Add Asset",
         onAction: searchTerm ? null : () => openAddAssetModal(state, () => load())
       });
       return;
     }
 
-    tableWrap.appendChild(buildTable(assets, state, load));
+    tableWrap.appendChild(buildTable(listAssets, state, load));
   }
 
   function exportCurrentView() {
@@ -196,6 +270,54 @@ export async function renderRegister(container, state) {
   }
 
   await load();
+}
+
+/**
+ * The Asset Type grid — groups the current scope (centre, or a room within
+ * it) by assetTypeCode and shows a count per type, split into Assigned (has
+ * a Current Custodian — a specific person responsible) vs In Stock (sitting
+ * in the room, nobody named yet). No per-type icon set exists yet, so each
+ * tile uses a plain code badge as a placeholder visual.
+ */
+function buildTypeGrid(assets, typeNames, onSelect) {
+  const groups = {};
+  assets.forEach((a) => {
+    const code = a.assetTypeCode || "—";
+    if (!groups[code]) groups[code] = { code, name: typeNames[code] || code, items: [] };
+    groups[code].items.push(a);
+  });
+
+  const tiles = Object.values(groups)
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .map((g) => {
+      const total = g.items.length;
+      const assigned = g.items.filter((a) => a.currentCustodian).length;
+      const inStock = total - assigned;
+      return el("div", {
+        style: "background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;cursor:pointer;transition:box-shadow .15s ease, transform .1s ease;display:flex;flex-direction:column;gap:12px;",
+        role: "button", tabindex: "0", "aria-label": `View ${g.name}`,
+        onclick: () => onSelect(g),
+        onkeydown: (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onSelect(g); } },
+        onmouseenter: (e) => { e.currentTarget.style.boxShadow = "var(--emboss-hover)"; e.currentTarget.style.transform = "translateY(-1px)"; },
+        onmouseleave: (e) => { e.currentTarget.style.boxShadow = "none"; e.currentTarget.style.transform = "translateY(0)"; }
+      }, [
+        el("div", { style: "display:flex;align-items:center;gap:10px;" }, [
+          el("div", {
+            style: "width:38px;height:38px;border-radius:50%;background:var(--accent-soft);color:var(--accent);display:flex;align-items:center;justify-content:center;font-size:10.5px;font-weight:800;letter-spacing:-.02em;flex:none;"
+          }, g.code),
+          el("div", { style: "min-width:0;" }, [
+            el("div", { style: "font-size:13px;font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" }, g.name),
+            el("div", { style: "font-size:11px;color:var(--text-faint);" }, `${total} asset${total === 1 ? "" : "s"}`)
+          ])
+        ]),
+        el("div", { style: "display:flex;gap:10px;font-size:11px;padding-top:8px;border-top:1px solid var(--border-soft);" }, [
+          el("span", { style: "color:var(--green);font-weight:700;" }, `${assigned} assigned`),
+          el("span", { style: "color:var(--blue);font-weight:700;" }, `${inStock} in stock`)
+        ])
+      ]);
+    });
+
+  return el("div", { style: "display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;" }, tiles);
 }
 
 function buildTable(assets, state, reload) {
