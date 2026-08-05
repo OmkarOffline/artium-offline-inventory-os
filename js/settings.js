@@ -16,7 +16,11 @@ import { downloadJSON } from "./csv.js";
 import { invalidateRoomsCache } from "./refcache.js";
 import { logActivity } from "./activity.js";
 import { listStaff, listActiveStaff, courseCodesLabel } from "./staff.js";
-import { listAssetTypes, createAssetType, updateAssetType, countAssetMastersUsingType, normalizeTypeCode } from "./assetMaster.js";
+import {
+  listAssetTypes, createAssetType, updateAssetType, countAssetMastersUsingType, normalizeTypeCode,
+  listAssetMasters, createAssetMaster, updateAssetMaster, ASSET_CATEGORIES
+} from "./assetMaster.js";
+import { listVendors } from "./vendors.js";
 import { nextSequence, buildAssetId } from "./addAsset.js";
 import { CLOSE_ICON } from "./icons.js";
 
@@ -26,36 +30,67 @@ const BACKUP_COLLECTIONS = [
   "activities", "users", "settings", "system"
 ];
 
+/**
+ * A small collapsible card — header row you click to expand/collapse, so
+ * Settings can hold several editable sections (Rooms, Asset Types, Asset
+ * Masters...) without each one permanently taking up screen space. Only one
+ * section needs to be open at a time in practice, so everything but Account
+ * Details starts collapsed.
+ */
+function collapsibleCard(title, defaultOpen) {
+  const chevron = el("span", {
+    style: `font-size:9px;color:var(--text-faint);transition:transform .15s ease;transform:rotate(${defaultOpen ? "180" : "0"}deg);`
+  }, "▾");
+  const header = el("button", {
+    type: "button",
+    class: "settings-section-header",
+    style: "width:100%;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 16px;background:none;border:none;cursor:pointer;text-align:left;"
+  }, [
+    el("span", { style: "font-size:12.5px;font-weight:700;color:var(--text);" }, title),
+    chevron
+  ]);
+  const body = el("div", { style: `padding:0 16px 16px;${defaultOpen ? "" : "display:none;"}` });
+  header.addEventListener("click", () => {
+    const opening = body.style.display === "none";
+    body.style.display = opening ? "block" : "none";
+    chevron.style.transform = opening ? "rotate(180deg)" : "rotate(0deg)";
+  });
+  const card = el("div", {
+    style: "background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-sm);margin-bottom:14px;overflow:hidden;"
+  }, [header, body]);
+  return { card, body };
+}
+
 export async function renderSettingsPage(container, state) {
   container.innerHTML = "";
   const isOwner = state.profile.role === "owner";
 
   container.appendChild(el("div", { style: "font-size:13px;font-weight:700;color:var(--text);margin-bottom:14px;" }, "Settings"));
 
-  const account = el("div", { style: "background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-sm);padding:16px;margin-bottom:14px;" }, [
-    el("div", { style: "font-size:12.5px;font-weight:700;color:var(--text);margin-bottom:10px;" }, "Your Account"),
-    detailRow("Name", state.profile.displayName || "—"),
-    detailRow("Email", state.profile.email),
-    detailRow("Role", state.profile.role === "owner" ? "Owner" : state.profile.role === "centre_admin" ? "Centre Admin" : "Viewer")
-  ]);
-  container.appendChild(account);
+  const { card: accountCard, body: accountBody } = collapsibleCard("Account Details", true);
+  accountBody.appendChild(detailRow("Name", state.profile.displayName || "—"));
+  accountBody.appendChild(detailRow("Email", state.profile.email));
+  accountBody.appendChild(detailRow("Role", state.profile.role === "owner" ? "Owner" : state.profile.role === "centre_admin" ? "Centre Admin" : "Viewer"));
+  container.appendChild(accountCard);
 
   if (!isOwner) return;
 
-  const roomsCard = el("div", { style: "background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-sm);padding:16px;margin-bottom:14px;" });
+  const { card: roomsCard, body: roomsBody } = collapsibleCard("Rooms", false);
   container.appendChild(roomsCard);
-  await renderRoomsCard(roomsCard, state);
+  await renderRoomsCard(roomsBody, state);
 
-  const assetTypesCard = el("div", { style: "background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-sm);padding:16px;margin-bottom:14px;" });
+  const { card: assetTypesCard, body: assetTypesBody } = collapsibleCard("Asset Types", false);
   container.appendChild(assetTypesCard);
-  await renderAssetTypesCard(assetTypesCard, state);
+  await renderAssetTypesCard(assetTypesBody, state);
 
-  const backupCard = el("div", { style: "background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-sm);padding:16px;" }, [
-    el("div", { style: "font-size:12.5px;font-weight:700;color:var(--text);margin-bottom:6px;" }, "Data Backup"),
-    el("div", { style: "font-size:11.5px;color:var(--text-faint);margin-bottom:12px;" },
-      "Downloads every collection as one JSON file — a safety net you can store externally. Inventory OS never deletes data on its own, so this exists purely as an extra precaution, not a routine requirement."),
-    el("button", { class: "btn btn-primary btn-sm", id: "exportSnapshotBtn" }, "Export Full Snapshot")
-  ]);
+  const { card: assetMastersCard, body: assetMastersBody } = collapsibleCard("Asset Masters", false);
+  container.appendChild(assetMastersCard);
+  await renderAssetMastersCard(assetMastersBody, state);
+
+  const { card: backupCard, body: backupBody } = collapsibleCard("Data Backup", false);
+  backupBody.appendChild(el("div", { style: "font-size:11.5px;color:var(--text-faint);margin-bottom:12px;" },
+    "Downloads every collection as one JSON file — a safety net you can store externally. Inventory OS never deletes data on its own, so this exists purely as an extra precaution, not a routine requirement."));
+  backupBody.appendChild(el("button", { class: "btn btn-primary btn-sm", id: "exportSnapshotBtn" }, "Export Full Snapshot"));
   container.appendChild(backupCard);
 
   document.getElementById("exportSnapshotBtn").addEventListener("click", async (e) => {
@@ -88,7 +123,6 @@ export async function renderSettingsPage(container, state) {
 // ---------------------------------------------------------------------------
 async function renderRoomsCard(card, state) {
   card.innerHTML = "";
-  card.appendChild(el("div", { style: "font-size:12.5px;font-weight:700;color:var(--text);margin-bottom:6px;" }, "Rooms"));
   card.appendChild(el("div", { style: "font-size:11.5px;color:var(--text-faint);margin-bottom:12px;" },
     "Every centre needs at least one room before assets can be added there. Room Code is the short segment used in that room's Asset IDs (e.g. \"OFF\", \"GTR\") — pick something short and won't need to change."));
 
@@ -265,7 +299,6 @@ async function reassignRoomAssetsToTeacher(roomId, centreId, teacherName, state)
 // ---------------------------------------------------------------------------
 async function renderAssetTypesCard(card, state) {
   card.innerHTML = "";
-  card.appendChild(el("div", { style: "font-size:12.5px;font-weight:700;color:var(--text);margin-bottom:6px;" }, "Asset Types"));
   card.appendChild(el("div", { style: "font-size:11.5px;color:var(--text-faint);margin-bottom:12px;" },
     "The code/name catalogue used to build Asset IDs (e.g. \"PHN\" for Smartphone). Changing a Code here will offer to regenerate the Asset IDs of every existing asset still using the old code, so a mistyped code can be fully corrected in one go."));
 
@@ -439,6 +472,139 @@ async function migrateAssetsToNewTypeCode(oldCode, newCode, hasMasters, assets, 
       console.error(`[settings] Failed to migrate asset ${asset.id} to new type code:`, err);
     }
   }
+}
+
+// ---------------------------------------------------------------------------
+// Asset Masters — the specs catalogue (name, brand/model, Asset Type,
+// warranty, default vendor) that Add Asset picks from or creates inline.
+// Previously the only way to reach this list at all was mid-flow inside Add
+// Asset; this gives it a proper home in Settings so Masters can be reviewed
+// and corrected without having to start adding an asset first.
+// ---------------------------------------------------------------------------
+async function renderAssetMastersCard(card, state) {
+  card.innerHTML = "";
+  card.appendChild(el("div", { style: "font-size:11.5px;color:var(--text-faint);margin-bottom:12px;" },
+    "The specs catalogue Add Asset picks from (name, brand/model, Asset Type, warranty, default vendor). Editing a Master here only affects assets created from it going forward — assets already created keep what they were saved with."));
+
+  const listWrap = el("div", {});
+  card.appendChild(listWrap);
+
+  const addBtn = el("button", { class: "btn btn-secondary btn-sm", style: "margin-top:10px;" }, "+ New Asset Master");
+  card.appendChild(addBtn);
+  addBtn.addEventListener("click", () => openAssetMasterEditModal(null, state, loadMasters));
+
+  async function loadMasters() {
+    listWrap.innerHTML = "<div style=\"font-size:12px;color:var(--text-faint);padding:8px 0;\">Loading…</div>";
+    const masters = await listAssetMasters();
+    listWrap.innerHTML = "";
+    if (!masters.length) {
+      listWrap.appendChild(el("div", { style: "font-size:12px;color:var(--text-faint);padding:8px 0;" }, "No asset masters yet."));
+      return;
+    }
+    masters.forEach((m) => {
+      listWrap.appendChild(el("div", {
+        style: "display:flex;justify-content:space-between;align-items:center;background:var(--bg-input);border-radius:var(--radius-sm);padding:8px 12px;margin-bottom:6px;"
+      }, [
+        el("div", {}, [
+          el("div", {}, [
+            el("span", { style: "font-size:12.5px;font-weight:600;color:var(--text);" }, m.assetName),
+            el("span", { style: "font-size:11px;color:var(--accent);font-weight:700;margin-left:8px;" }, m.assetTypeCode)
+          ]),
+          el("div", { style: "font-size:11px;color:var(--text-faint);margin-top:2px;" },
+            [m.category, [m.brand, m.model].filter(Boolean).join(" ")].filter(Boolean).join(" · ") || "—")
+        ]),
+        el("button", { class: "btn btn-ghost btn-sm", onclick: () => openAssetMasterEditModal(m, state, loadMasters) }, "Edit")
+      ]));
+    });
+  }
+
+  await loadMasters();
+}
+
+async function openAssetMasterEditModal(existing, state, onDone) {
+  const isEdit = !!existing;
+  const [assetTypes, vendors] = await Promise.all([listAssetTypes(), listVendors()]);
+  if (!assetTypes.length) { showToast("Add an Asset Type first — a Master needs one to build Asset IDs from.", "amber"); return; }
+
+  const overlay = el("div", { class: "modal-overlay show", role: "dialog", "aria-modal": "true" });
+  const nameInput = el("input", { class: "field-input", type: "text", value: existing?.assetName || "" });
+  const categorySelect = el("select", { class: "field-input" }, ASSET_CATEGORIES.map((c) => new Option(c, c)));
+  const typeSelect = el("select", { class: "field-input" },
+    [new Option("Select a type", "")].concat(assetTypes.map((t) => new Option(`${t.code} — ${t.name}`, t.code))));
+  const brandInput = el("input", { class: "field-input", type: "text", value: existing?.brand || "" });
+  const modelInput = el("input", { class: "field-input", type: "text", value: existing?.model || "" });
+  const warrantyCheckbox = el("input", { type: "checkbox" });
+  const vendorSelect = el("select", { class: "field-input" },
+    [new Option("None", "")].concat(vendors.map((v) => new Option(v.companyName, v.id))));
+  const imageLinkInput = el("input", { class: "field-input", type: "text", value: existing?.driveImageLink || "" });
+  const descriptionInput = el("textarea", { class: "field-input" });
+
+  categorySelect.value = existing?.category || ASSET_CATEGORIES[0];
+  typeSelect.value = existing?.assetTypeCode || "";
+  warrantyCheckbox.checked = !!existing?.warrantyApplicable;
+  vendorSelect.value = existing?.defaultVendorId || "";
+  descriptionInput.value = existing?.description || "";
+
+  const modal = el("div", { class: "modal" }, [
+    el("div", { class: "modal-header" }, [el("h2", {}, isEdit ? "Edit Asset Master" : "New Asset Master"), el("button", { class: "btn-icon-only", "aria-label": "Close", onclick: () => overlay.remove() }, [el("img", { src: CLOSE_ICON, alt: "", class: "icon-img", loading: "lazy" })])]),
+    el("div", { class: "modal-body" }, [
+      el("div", { class: "field-group" }, [el("div", { class: "field-label" }, "Asset Name"), nameInput]),
+      el("div", { class: "field-row", style: "display:grid;grid-template-columns:1fr 1fr;gap:10px;" }, [
+        el("div", { class: "field-group" }, [el("div", { class: "field-label" }, "Category"), categorySelect]),
+        el("div", { class: "field-group" }, [el("div", { class: "field-label" }, "Asset Type"), typeSelect])
+      ]),
+      el("div", { class: "field-row", style: "display:grid;grid-template-columns:1fr 1fr;gap:10px;" }, [
+        el("div", { class: "field-group" }, [el("div", { class: "field-label" }, "Brand"), brandInput]),
+        el("div", { class: "field-group" }, [el("div", { class: "field-label" }, "Model"), modelInput])
+      ]),
+      el("label", { style: "display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--text-dim);margin:6px 0;" }, [warrantyCheckbox, "Warranty applicable"]),
+      el("div", { class: "field-group" }, [el("div", { class: "field-label" }, "Default Vendor (optional)"), vendorSelect]),
+      el("div", { class: "field-group" }, [el("div", { class: "field-label" }, "Standard Image (link, optional)"), imageLinkInput]),
+      el("div", { class: "field-group" }, [el("div", { class: "field-label" }, "Description / Remarks"), descriptionInput]),
+      isEdit ? el("div", { style: "font-size:11.5px;color:var(--text-faint);" },
+        "Changing the Asset Type here only affects future assets created from this Master — Asset IDs already generated don't get renamed automatically. Use Asset Types above to correct a code across everything at once.") : null
+    ].filter(Boolean)),
+    el("div", { class: "modal-footer" }, [
+      el("button", { class: "btn btn-ghost", onclick: () => overlay.remove() }, "Cancel"),
+      el("button", { class: "btn btn-primary", onclick: async (e) => {
+        const assetName = nameInput.value.trim();
+        const assetTypeCode = typeSelect.value;
+        if (!assetName) { showToast("Asset Name is required", "red"); return; }
+        if (!assetTypeCode) { showToast("Select an Asset Type — this sets the code used in every Asset ID for this master", "red"); return; }
+
+        const masterData = {
+          assetName,
+          category: categorySelect.value,
+          assetTypeCode,
+          brand: brandInput.value,
+          model: modelInput.value,
+          warrantyApplicable: warrantyCheckbox.checked,
+          defaultVendorId: vendorSelect.value || null,
+          driveImageLink: imageLinkInput.value,
+          description: descriptionInput.value
+        };
+
+        e.target.disabled = true;
+        try {
+          if (isEdit) {
+            await updateAssetMaster(existing.id, masterData);
+            showToast("Asset Master updated", "green");
+          } else {
+            await createAssetMaster(masterData, state.profile);
+            showToast("Asset Master created", "green");
+          }
+          overlay.remove();
+          if (onDone) onDone();
+        } catch (err) {
+          console.error(`[settings] Failed to ${isEdit ? "update" : "create"} asset master:`, err);
+          showToast(`Couldn't ${isEdit ? "update" : "create"} Asset Master. Check your permissions.`, "red");
+          e.target.disabled = false;
+        }
+      } }, isEdit ? "Save" : "Create")
+    ])
+  ]);
+  overlay.appendChild(modal);
+  document.body.appendChild(overlay);
 }
 
 function detailRow(label, value) {
